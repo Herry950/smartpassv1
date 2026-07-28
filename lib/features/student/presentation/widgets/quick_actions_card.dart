@@ -46,7 +46,7 @@ class QuickActionsCard extends StatelessWidget {
                   label: "Ma carte",
                   color: Colors.indigo,
                   onTap: () {
-                    // TODO : Ouvrir la carte étudiante
+                    context.go('/student/card');
                   },
                 ),
 
@@ -55,7 +55,7 @@ class QuickActionsCard extends StatelessWidget {
                   label: "Payer",
                   color: Colors.green,
                   onTap: () {
-                    // TODO : Ouvrir la page de paiement
+                    context.go('/student/payment');
                   },
                 ),
 
@@ -64,7 +64,7 @@ class QuickActionsCard extends StatelessWidget {
                   label: "Mes reçus",
                   color: Colors.red,
                   onTap: () {
-                    // TODO : Ouvrir l'historique des paiements
+                    context.go('/student/receipts');
                   },
                 ),
 
@@ -73,7 +73,7 @@ class QuickActionsCard extends StatelessWidget {
                   label: "Notifications",
                   color: Colors.orange,
                   onTap: () {
-                    // TODO : Ouvrir le centre de notifications
+                    context.go('/student/notifications');
                   },
                 ),
 

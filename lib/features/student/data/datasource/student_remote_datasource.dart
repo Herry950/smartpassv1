@@ -117,4 +117,29 @@ class StudentRemoteDataSource {
 
     return List<Map<String, dynamic>>.from(response);
   }
+
+  /// Session d'examen actuellement ouverte
+  static Future<Map<String, dynamic>?> getCurrentExamSession() async {
+    final response = await _client
+        .from('exam_sessions')
+        .select('''
+          id,
+          fee_amount,
+          currency,
+          session_name,
+          semester,
+          payment_open,
+          academic_years(name)
+        ''')
+        .eq('payment_open', true)
+        .limit(1)
+        .maybeSingle();
+
+    print("========== EXAM SESSION ==========");
+    print(response);
+    print("Session ID : ${response?['id']}");
+    print("==================================");
+
+    return response;
+  }
 }

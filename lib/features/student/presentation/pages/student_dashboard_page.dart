@@ -132,6 +132,7 @@ class StudentDashboardPage extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   PaymentHistoryCard(
+                    student: student,
                     payments: payments,
                   )
                       .animate()

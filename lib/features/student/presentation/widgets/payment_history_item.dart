@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../data/repositories/pdf_receipt_repository.dart';
+
 class PaymentHistoryItem extends StatelessWidget {
   final String title;
   final String amount;
   final String method;
   final String date;
+
+  final String student;
+  final String matricule;
+  final String faculty;
+  final String department;
+  final String promotion;
+
+  final String provider;
+  final String transaction;
+  final String receiptNumber;
+
   final bool success;
 
   const PaymentHistoryItem({
@@ -13,6 +26,14 @@ class PaymentHistoryItem extends StatelessWidget {
     required this.amount,
     required this.method,
     required this.date,
+    required this.student,
+    required this.matricule,
+    required this.faculty,
+    required this.department,
+    required this.promotion,
+    required this.provider,
+    required this.transaction,
+    required this.receiptNumber,
     this.success = true,
   });
 
@@ -51,7 +72,8 @@ class PaymentHistoryItem extends StatelessWidget {
 
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
@@ -84,7 +106,8 @@ class PaymentHistoryItem extends StatelessWidget {
           ),
 
           Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment:
+                CrossAxisAlignment.end,
             children: [
               Text(
                 amount,
@@ -99,11 +122,27 @@ class PaymentHistoryItem extends StatelessWidget {
 
               IconButton(
                 tooltip: "Télécharger le reçu",
-                onPressed: () {},
                 icon: const Icon(
                   Icons.picture_as_pdf_rounded,
                   color: Colors.red,
                 ),
+                onPressed: () async {
+                  await PdfReceiptRepository
+                      .downloadReceipt(
+                    receiptNumber: receiptNumber,
+                    student: student,
+                    matricule: matricule,
+                    faculty: faculty,
+                    department: department,
+                    promotion: promotion,
+                    amount: amount,
+                    method: method,
+                    provider: provider,
+                    transaction: transaction,
+                    date: date,
+                    validated: success,
+                  );
+                },
               ),
             ],
           ),

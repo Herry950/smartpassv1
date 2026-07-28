@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
+import 'package:myprojectflut/core/models/student.dart';
+
 import 'payment_history_list.dart';
 
 class PaymentHistoryCard extends StatelessWidget {
+  final Student student;
   final List<Map<String, dynamic>> payments;
 
   const PaymentHistoryCard({
     super.key,
+    required this.student,
     required this.payments,
   });
 
@@ -54,9 +58,7 @@ class PaymentHistoryCard extends StatelessWidget {
 
                 TextButton(
                   onPressed: () {},
-                  child: const Text(
-                    "Voir tout",
-                  ),
+                  child: const Text("Voir tout"),
                 ),
               ],
             ),
@@ -64,6 +66,7 @@ class PaymentHistoryCard extends StatelessWidget {
             const SizedBox(height: 24),
 
             PaymentHistoryList(
+              student: student,
               payments: payments,
             ),
           ],
