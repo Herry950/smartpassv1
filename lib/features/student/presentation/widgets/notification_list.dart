@@ -50,13 +50,34 @@ class NotificationList extends StatelessWidget {
     }
   }
 
+  String _formatDate(String? value) {
+    if (value == null) return "";
+
+    final date = DateTime.parse(value).toLocal();
+    final now = DateTime.now();
+
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      return "Aujourd'hui";
+    }
+
+    final yesterday = now.subtract(const Duration(days: 1));
+
+    if (date.year == yesterday.year &&
+        date.month == yesterday.month &&
+        date.day == yesterday.day) {
+      return "Hier";
+    }
+
+    return "${date.day}/${date.month}/${date.year}";
+  }
+
   @override
   Widget build(BuildContext context) {
     if (notifications.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(
-          vertical: 20,
-        ),
+        padding: EdgeInsets.symmetric(vertical: 20),
         child: Center(
           child: Text(
             "Aucune notification disponible.",
@@ -70,11 +91,9 @@ class NotificationList extends StatelessWidget {
         return NotificationItem(
           icon: _icon(notification['type']),
           color: _color(notification['type']),
-          title: notification['title'],
-          message: notification['message'],
-          time: notification['created_at']
-              .toString()
-              .substring(0, 10),
+          title: notification['title'] ?? "",
+          message: notification['message'] ?? "",
+          time: _formatDate(notification['created_at']),
           unread: !(notification['is_read'] ?? false),
         );
       }).toList(),

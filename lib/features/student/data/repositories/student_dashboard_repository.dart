@@ -36,9 +36,7 @@ class StudentDashboardRepository {
     print("Nombre de paiements : ${payments.length}");
 
     final notifications =
-        await NotificationRepository.getNotifications(
-      student.id,
-    );
+        await NotificationRepository.getNotifications();
 
     print(
       "Nombre de notifications : ${notifications.length}",

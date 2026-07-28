@@ -75,4 +75,18 @@ class AuthService {
 
     return null;
   }
+
+  static Future<String?> getStudentId() async {
+  final user = currentUser;
+
+  if (user == null) return null;
+
+  final result = await _client
+      .from('students')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+  return result?['id'];
+}
 }
