@@ -7,12 +7,14 @@ export async function createPendingPayment({
   amount,
   currency,
   txRef,
+  paymentMethod,
 }: {
   studentId: string;
   examSessionId: string;
   amount: number;
   currency: string;
   txRef: string;
+  paymentMethod: string;
 }): Promise<Payment> {
   console.log("========== PAYMENT INSERT ==========");
   console.log("Student ID :", studentId);
@@ -20,6 +22,10 @@ export async function createPendingPayment({
   console.log("Amount :", amount);
   console.log("Currency :", currency);
   console.log("TX REF :", txRef);
+  console.log("Payment Method :", paymentMethod);
+
+  // Vérification avant l'insertion
+  console.log("TX REF reçu dans repository :", txRef);
 
   const { data, error } = await supabase
     .from("payments")
@@ -28,22 +34,19 @@ export async function createPendingPayment({
       exam_session_id: examSessionId,
       amount,
       currency,
-
-      payment_method: "online",
+      payment_method: paymentMethod,
       payment_channel: "Flutterwave",
       provider: "Flutterwave",
-
-      // IMPORTANT :
-      // le nom réel de la colonne est celui-ci
-      flutterwave_transaction_id: txRef,
-
+      flutterwave_tx_ref: txRef,
+      flutterwave_transaction_id: null,
       status: "pending",
     })
     .select()
     .single();
 
-  console.log("Payment inserted :", data);
-  console.log("Payment insert error :", error);
+  // Vérification après l'insertion
+  console.log("Paiement inséré :", data);
+  console.log("Erreur insertion :", error);
 
   if (error || !data) {
     throw new Error(

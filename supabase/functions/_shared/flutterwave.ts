@@ -13,6 +13,7 @@ export interface FlutterwavePaymentRequest {
   customerName: string;
   customerEmail: string;
   redirectUrl: string;
+  paymentMethod: string;
 }
 
 interface FlutterwaveCheckoutResponse {
@@ -26,6 +27,14 @@ interface FlutterwaveCheckoutResponse {
 export async function createFlutterwaveCheckout(
   request: FlutterwavePaymentRequest,
 ): Promise<{ checkoutUrl: string }> {
+  // Détermination du paramètre payment_options selon le choix de l'étudiant
+  let paymentOptions = "card";
+
+  if (request.paymentMethod === "Orange" || request.paymentMethod === "MTN") {
+    // Utilisation du canal Mobile Money XAF disponible sur ton dashboard pour l'Afrique Centrale
+    paymentOptions = "mobilemoneyxaf,card"; 
+  }
+
   const response = await fetch(API, {
     method: "POST",
     headers: {
@@ -37,6 +46,7 @@ export async function createFlutterwaveCheckout(
       amount: request.amount,
       currency: request.currency,
       redirect_url: request.redirectUrl,
+      payment_options: paymentOptions, // Applique le filtre dynamique
       customer: {
         email: request.customerEmail,
         name: request.customerName,
@@ -60,13 +70,13 @@ export async function createFlutterwaveCheckout(
 
   if (!response.ok) {
     throw new Error(
-      json.message ?? `Flutterwave Error HTTP ${response.status}`,
+      `Flutterwave Error HTTP ${response.status}: ${json.message ?? "Erreur inconnue"}`,
     );
   }
 
   if (json.status !== "success" || !json.data?.link) {
     throw new Error(
-      json.message ?? "Flutterwave n'a pas fourni de lien de paiement.",
+      `Flutterwave n'a pas fourni de lien de paiement: ${json.message ?? "Erreur inconnue"}`,
     );
   }
 

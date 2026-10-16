@@ -29,25 +29,38 @@ class PaymentHistoryList extends StatelessWidget {
 
     return Column(
       children: payments.map((payment) {
+        final transaction =
+            payment['flutterwave_transaction_id'] ??
+            "";
+
+        final signature =
+            payment['receipt_signature'] ??
+            "";
+
         return Padding(
-          padding: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.only(
+            bottom: 14,
+          ),
           child: PaymentHistoryItem(
-            title: payment['transaction_id'] ?? "Paiement",
+            title: transaction.toString().isEmpty
+                ? "Paiement"
+                : "Paiement ${transaction}",
 
             amount:
-                "${payment['amount']} ${payment['currency']}",
+                "${payment['amount'] ?? '0'} ${payment['currency'] ?? 'USD'}",
 
             method:
-                payment['payment_method'] ?? "Inconnu",
+                payment['payment_method'] ??
+                "Inconnu",
 
             date: payment['paid_at'] == null
                 ? ""
                 : DateTime.parse(
-                    payment['paid_at'],
+                    payment['paid_at'].toString(),
                   )
-                    .toLocal()
-                    .toString()
-                    .substring(0, 16),
+                      .toLocal()
+                      .toString()
+                      .substring(0, 16),
 
             student: student.fullName,
             matricule: student.matricule,
@@ -60,14 +73,22 @@ class PaymentHistoryList extends StatelessWidget {
                 payment['payment_method'] ??
                 "Inconnu",
 
-            transaction:
-                payment['transaction_id'] ?? "",
+            transaction: transaction.toString(),
 
             receiptNumber:
-                payment['receipt_number'] ?? "N/A",
+                payment['receipt_number'] ??
+                "N/A",
+
+            currency:
+                payment['currency'] ??
+                "USD",
+
+            signature:
+                signature.toString(),
 
             success:
-                payment['status'] == "validated",
+                payment['status']?.toString().toLowerCase() ==
+                "validated",
           ),
         );
       }).toList(),

@@ -9,7 +9,7 @@ export interface ReceiptPayload {
 
   currency: string;
 
-  transaction_id: string;
+  flutterwave_transaction_id: string;
 
   paid_at: string;
 }

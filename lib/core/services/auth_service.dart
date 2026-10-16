@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';//pour jwt
 
 class AuthService {
   AuthService._();
@@ -89,4 +90,27 @@ class AuthService {
 
   return result?['id'];
 }
+//ajout pour tester les  jwt
+static bool hasActiveSession() {
+  return _client.auth.currentSession != null;
+}
+static Future<void> testReceiptVerification() async {
+  final client = Supabase.instance.client;
+
+  try {
+    final response = await client.functions.invoke(
+      'get-receipt',
+      body: {
+        'receipt_number': 'SP-2026-000003',
+      },
+    );
+
+    debugPrint('Résultat vérification reçu : ${response.data}');
+  } on FunctionException catch (e) {
+    debugPrint('Erreur fonction : ${e.status}');
+    debugPrint('Détails : ${e.details}');
+  } catch (e) {
+    debugPrint('Erreur test reçu : $e');
+  }
+}//about jwt
 }

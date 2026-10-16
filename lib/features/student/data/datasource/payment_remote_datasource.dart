@@ -12,6 +12,7 @@ class PaymentRemoteDataSource {
   static Future<String> createPayment({
     required String examSessionId,
     required String email,
+    required String paymentMethod,
   }) async {
     final session = _client.auth.currentSession;
 
@@ -30,6 +31,7 @@ class PaymentRemoteDataSource {
     print("URL : $url");
     print("Exam Session : $examSessionId");
     print("Email : $email");
+    print("Payment Method : $paymentMethod");
 
     final response = await http.post(
       Uri.parse(url),
@@ -41,6 +43,7 @@ class PaymentRemoteDataSource {
       body: jsonEncode({
         "exam_session_id": examSessionId,
         "email": email,
+        "payment_method": paymentMethod,
       }),
     );
 

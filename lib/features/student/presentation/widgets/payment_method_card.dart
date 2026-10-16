@@ -106,20 +106,14 @@ class PaymentMethodCard extends StatelessWidget {
 
           _buildMethod(
             context: context,
-            title: "Orange Money",
+            title: "Orange",
             icon: Icons.phone_android,
           ),
 
           _buildMethod(
             context: context,
-            title: "Airtel Money",
-            icon: Icons.sim_card,
-          ),
-
-          _buildMethod(
-            context: context,
-            title: "M-Pesa",
-            icon: Icons.account_balance_wallet,
+            title: "MTN",
+            icon: Icons.phone_android,
           ),
 
           _buildMethod(

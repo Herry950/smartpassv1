@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:myprojectflut/core/services/auth_service.dart';//pour jwt
 import '../widgets/access_validation_card.dart';
 import '../widgets/assistant_header.dart';
 import '../widgets/assistant_search_card.dart';
@@ -12,6 +13,9 @@ class AssistantDashboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
+    debugPrint(//about jwt
+  'Session Supabase active : ${AuthService.hasActiveSession()}',
+);//about jwt
 
     final bool isDesktop = width >= 1100;
 
@@ -37,6 +41,16 @@ class AssistantDashboardPage extends StatelessWidget {
                 const AssistantHeader(
                   assistantName: "Jean Assistant",
                 ),
+                //about jwt
+const SizedBox(height: 16),
+
+ElevatedButton.icon(
+  onPressed: () async {
+    await AuthService.testReceiptVerification();
+  },
+  icon: const Icon(Icons.verified_outlined),
+  label: const Text('Tester le reçu SP-2026-000003'),
+),//jwt
 
                 const SizedBox(height: 24),
 
@@ -95,4 +109,5 @@ class AssistantDashboardPage extends StatelessWidget {
       ),
     );
   }
+
 }

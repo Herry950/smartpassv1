@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:myprojectflut/core/models/payment_receipt.dart';
 import '../../data/repositories/pdf_receipt_repository.dart';
 
 class PaymentHistoryItem extends StatelessWidget {
@@ -18,6 +19,9 @@ class PaymentHistoryItem extends StatelessWidget {
   final String transaction;
   final String receiptNumber;
 
+  final String currency;
+  final String signature;
+
   final bool success;
 
   const PaymentHistoryItem({
@@ -34,6 +38,8 @@ class PaymentHistoryItem extends StatelessWidget {
     required this.provider,
     required this.transaction,
     required this.receiptNumber,
+    this.currency = 'USD',
+    this.signature = '',
     this.success = true,
   });
 
@@ -72,8 +78,7 @@ class PaymentHistoryItem extends StatelessWidget {
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
@@ -106,8 +111,7 @@ class PaymentHistoryItem extends StatelessWidget {
           ),
 
           Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 amount,
@@ -127,8 +131,8 @@ class PaymentHistoryItem extends StatelessWidget {
                   color: Colors.red,
                 ),
                 onPressed: () async {
-                  await PdfReceiptRepository
-                      .downloadReceipt(
+                  final receipt = PaymentReceipt(
+                    paymentId: '',
                     receiptNumber: receiptNumber,
                     student: student,
                     matricule: matricule,
@@ -136,11 +140,17 @@ class PaymentHistoryItem extends StatelessWidget {
                     department: department,
                     promotion: promotion,
                     amount: amount,
+                    currency: currency,
                     method: method,
                     provider: provider,
                     transaction: transaction,
                     date: date,
                     validated: success,
+                    signature: signature,
+                  );
+
+                  await PdfReceiptRepository.downloadReceipt(
+                    receipt: receipt,
                   );
                 },
               ),

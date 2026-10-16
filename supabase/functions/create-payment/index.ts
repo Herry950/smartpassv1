@@ -2,6 +2,8 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
+import { getExistingPayment } from "./payment_lookup.ts";
+
 import {
   badRequest,
   serverError,
@@ -67,6 +69,10 @@ Deno.serve(async (req) => {
     const examSessionId =
       body?.exam_session_id;
 
+    // Récupération du mode de paiement envoyé depuis l'application Flutter ("Orange", "MTN", "Carte bancaire")
+    const paymentMethod =
+      body?.payment_method ?? "Carte bancaire";
+
     if (!examSessionId) {
       return badRequest(
         "exam_session_id manquant.",
@@ -76,6 +82,10 @@ Deno.serve(async (req) => {
     console.log(
       "Exam Session ID :",
       examSessionId,
+    );
+    console.log(
+      "Payment Method :",
+      paymentMethod,
     );
 
     // 1. Authentification
@@ -116,7 +126,7 @@ Deno.serve(async (req) => {
       txRef,
     );
 
-    // 4. Création du paiement pending
+    // 4. Création du paiement pending (avec transmission du moyen de paiement)
     const payment =
       await createPendingPayment({
         studentId: student.id,
@@ -124,6 +134,7 @@ Deno.serve(async (req) => {
         amount: session.fee_amount,
         currency: session.currency,
         txRef,
+        paymentMethod,
       });
 
     console.log(
@@ -131,7 +142,7 @@ Deno.serve(async (req) => {
       payment.id,
     );
 
-    // 5. Création du checkout Flutterwave
+    // 5. Création du checkout Flutterwave (avec transmission du moyen de paiement)
     const checkout =
       await createFlutterwaveCheckout({
         txRef,
@@ -143,6 +154,7 @@ Deno.serve(async (req) => {
           student.email,
         redirectUrl:
           "https://smartpass.vercel.app/payment-result",
+        paymentMethod,
       });
 
     console.log(
