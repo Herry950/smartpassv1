@@ -26,15 +26,18 @@ class PaymentRepository {
   static Future<String> createPayment({
     required String examSessionId,
     required String email,
+    required String paymentMethod,
   }) async {
     print("========== PaymentRepository ==========");
     print("ExamSessionId : $examSessionId");
     print("Email : $email");
+    print("PaymentMethod : $paymentMethod");
 
     final checkoutUrl =
         await PaymentRemoteDataSource.createPayment(
       examSessionId: examSessionId,
       email: email,
+      paymentMethod: paymentMethod,
     );
 
     print("CheckoutUrl : $checkoutUrl");

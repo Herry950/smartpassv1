@@ -21,7 +21,8 @@ class StudentPaymentPage extends StatefulWidget {
 
 class _StudentPaymentPageState
     extends State<StudentPaymentPage> {
-  String selectedMethod = "Orange Money";
+  // Option par défaut alignée sur les choix disponibles
+  String selectedMethod = "Orange";
 
   bool isLoading = false;
   bool loadingPage = true;
@@ -149,6 +150,7 @@ class _StudentPaymentPageState
                         await PaymentRepository.createPayment(
                       examSessionId: examSession!["id"],
                       email: email,
+                      paymentMethod: selectedMethod, // <-- Transmission du moyen de paiement choisi
                     );
                     print("5 : $checkoutUrl");
                     if (!mounted) return;

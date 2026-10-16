@@ -41,4 +41,29 @@ class DocumentSignatureService {
 
     return data['signature'] as String;
   }
+
+  static Future<Map<String, dynamic>> getReceipt({
+    required String paymentId,
+  }) async {
+    final response = await _supabase.functions.invoke(
+      'receipt',
+      body: {
+        'payment_id': paymentId,
+      },
+    );
+
+    if (response.data == null) {
+      throw Exception("Aucune réponse du serveur.");
+    }
+
+    final data = response.data;
+
+    if (data['success'] != true) {
+      throw Exception(
+        data['message'] ?? "Impossible de récupérer le reçu.",
+      );
+    }
+
+    return Map<String, dynamic>.from(data);
+  }
 }

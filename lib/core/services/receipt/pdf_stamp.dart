@@ -24,4 +24,4 @@ Future<pw.Widget> buildOfficialStamp() async {
       ),
     ),
   );
-}
+}//this file is the cachet generation of the service of examen fees (mais je l'ai suprimé du récu en rétirant son import dans pdf-receipt-service) 

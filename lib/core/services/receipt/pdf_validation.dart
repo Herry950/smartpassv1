@@ -5,7 +5,10 @@ import 'pdf_styles.dart';
 
 pw.Widget buildValidationSection({
   required bool validated,
+  required String signature,
 }) {
+  final hasSignature = signature.trim().isNotEmpty;
+
   return pw.Container(
     width: double.infinity,
     padding: const pw.EdgeInsets.all(16),
@@ -29,8 +32,7 @@ pw.Widget buildValidationSection({
             color: validated
                 ? PdfColors.green100
                 : PdfColors.red100,
-            borderRadius:
-                pw.BorderRadius.circular(8),
+            borderRadius: pw.BorderRadius.circular(8),
             border: pw.Border.all(
               color: validated
                   ? PdfColors.green700
@@ -53,6 +55,57 @@ pw.Widget buildValidationSection({
             ],
           ),
         ),
+
+        pw.SizedBox(height: 16),
+
+        if (validated)
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(
+                color: PdfColors.grey400,
+              ),
+              borderRadius: pw.BorderRadius.circular(6),
+            ),
+            child: pw.Column(
+              crossAxisAlignment:
+                  pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  hasSignature
+                      ? "✓ Signature numérique présente"
+                      : "⚠️ Signature numérique indisponible",
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 10,
+                    color: hasSignature
+                        ? PdfColors.green800
+                        : PdfColors.orange800,
+                  ),
+                ),
+
+                if (hasSignature) ...[
+                  pw.SizedBox(height: 6),
+
+                  pw.Text(
+                    "Signature HMAC-SHA256 :",
+                    style: PdfStyles.small,
+                  ),
+
+                  pw.SizedBox(height: 3),
+
+                  pw.Text(
+                    signature,
+                    style: pw.TextStyle(
+                      fontSize: 7,
+                      color: PdfColors.grey800,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
 
         pw.SizedBox(height: 20),
 
