@@ -26,6 +26,7 @@ export interface Payment {
   payment_channel: string;
   provider: string | null;
   flutterwave_transaction_id: string | null;
+  flutterwave_tx_ref: string | null;
   status: string;
   validated_by: string | null;
   cash_remitted: boolean;

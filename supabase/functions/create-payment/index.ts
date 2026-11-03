@@ -2,10 +2,9 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 
 import { corsHeaders } from "../_shared/cors.ts";
 
-import { getExistingPayment } from "./payment_lookup.ts";
-
 import {
   badRequest,
+  conflict,
   serverError,
   success,
 } from "../_shared/responses.ts";
@@ -26,17 +25,12 @@ import {
 
 import {
   createPendingPayment,
+  PaymentCreationError,
 } from "./payment_repository.ts";
 
 Deno.serve(async (req) => {
-  console.log(
-    "========== CREATE PAYMENT ==========",
-  );
-
-  console.log(
-    "Method :",
-    req.method,
-  );
+  console.log("========== CREATE PAYMENT ==========");
+  console.log("Method :", req.method);
 
   if (req.method === "OPTIONS") {
     return new Response("ok", {
@@ -54,81 +48,45 @@ Deno.serve(async (req) => {
     );
 
     if (!authorization) {
-      return badRequest(
-        "Authorization manquante.",
-      );
+      return badRequest("Authorization manquante.");
     }
 
     const body = await req.json();
+    console.log("Request body :", body);
 
-    console.log(
-      "Request body :",
-      body,
-    );
-
-    const examSessionId =
-      body?.exam_session_id;
-
-    // Récupération du mode de paiement envoyé depuis l'application Flutter ("Orange", "MTN", "Carte bancaire")
+    const examSessionId = body?.exam_session_id;
     const paymentMethod =
       body?.payment_method ?? "Carte bancaire";
 
     if (!examSessionId) {
-      return badRequest(
-        "exam_session_id manquant.",
-      );
+      return badRequest("exam_session_id manquant.");
     }
 
-    console.log(
-      "Exam Session ID :",
-      examSessionId,
-    );
-    console.log(
-      "Payment Method :",
-      paymentMethod,
-    );
+    console.log("Exam Session ID :", examSessionId);
+    console.log("Payment Method :", paymentMethod);
 
     // 1. Authentification
-    const student =
-      await getAuthenticatedStudent(
-        authorization,
-      );
-
-    console.log(
-      "Étudiant authentifié :",
-      student.full_name,
+    const student = await getAuthenticatedStudent(
+      authorization,
     );
 
-    console.log(
-      "Student ID :",
-      student.id,
-    );
+    console.log("Étudiant authentifié :", student.full_name);
+    console.log("Student ID :", student.id);
 
     // 2. Récupération de la session
-    const session =
-      await getExamSession(
-        examSessionId,
-      );
+    const session = await getExamSession(examSessionId);
 
-    console.log(
-      "Session trouvée :",
-      session,
-    );
+    console.log("Session trouvée :", session);
 
     // 3. Génération de la référence
-    const txRef =
-      generateTxRef(
-        student.matricule,
-      );
+    const txRef = generateTxRef(student.matricule);
+    console.log("TX REF :", txRef);
 
-    console.log(
-      "TX REF :",
-      txRef,
-    );
+    // 4. Création atomique du paiement en attente
+    let payment;
 
-    // 4. Création du paiement pending (avec transmission du moyen de paiement)
-    const payment =
-      await createPendingPayment({
+    try {
+      payment = await createPendingPayment({
         studentId: student.id,
         examSessionId: session.id,
         amount: session.fee_amount,
@@ -136,52 +94,69 @@ Deno.serve(async (req) => {
         txRef,
         paymentMethod,
       });
+    } catch (error) {
+      if (error instanceof PaymentCreationError) {
+        if (
+          error.code === "23505" &&
+          error.message.includes(
+            "Cette session est déjà payée pour cet étudiant.",
+          )
+        ) {
+          return conflict(
+            "PAYMENT_ALREADY_EXISTS",
+            "Cette session est déjà payée pour cet étudiant.",
+          );
+        }
 
-    console.log(
-      "Paiement pending créé :",
-      payment.id,
-    );
+        if (
+          error.code === "23505" &&
+          error.message.includes(
+            "Une tentative de paiement est déjà en attente pour cette session.",
+          )
+        ) {
+          return conflict(
+            "PAYMENT_PENDING",
+            "Une tentative de paiement est déjà en attente pour cette session.",
+          );
+        }
+      }
 
-    // 5. Création du checkout Flutterwave (avec transmission du moyen de paiement)
-    const checkout =
-      await createFlutterwaveCheckout({
-        txRef,
-        amount: session.fee_amount,
-        currency: session.currency,
-        customerName:
-          student.full_name,
-        customerEmail:
-          student.email,
-        redirectUrl:
-          "https://smartpass.vercel.app/payment-result",
-        paymentMethod,
-      });
+      // Laisse les véritables erreurs remonter vers le gestionnaire général.
+      throw error;
+    }
 
-    console.log(
-      "Checkout prêt.",
-    );
+    console.log("Paiement pending créé :", payment.id);
+
+    // 5. Création du checkout Flutterwave
+    const checkout = await createFlutterwaveCheckout({
+      txRef,
+      amount: session.fee_amount,
+      currency: session.currency,
+      customerName: student.full_name,
+      customerEmail: student.email,
+      redirectUrl:
+        "https://smartpass.vercel.app/payment-result",
+      paymentMethod,
+    });
+
+    console.log("Checkout prêt.");
 
     return success({
       success: true,
-
       payment_id: payment.id,
-
       tx_ref: txRef,
-
-      checkout_url:
-        checkout.checkoutUrl,
+      checkout_url: checkout.checkoutUrl,
     });
-  } catch (e) {
+  } catch (error) {
     console.error(
       "========== CREATE PAYMENT ERROR ==========",
     );
-
-    console.error(e);
+    console.error(error);
 
     return serverError(
-      e instanceof Error
-        ? e.message
-        : String(e),
+      error instanceof Error
+        ? error.message
+        : String(error),
     );
   }
 });

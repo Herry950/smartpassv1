@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:myprojectflut/shared/widgets/change_password_dialog.dart';
 
 import 'package:myprojectflut/core/models/student.dart';
+import 'package:myprojectflut/shared/widgets/app_logout_card.dart';
+import 'package:myprojectflut/shared/widgets/app_settings_card.dart';
 
-import '../widgets/logout_card.dart';
 import '../widgets/profile_header.dart';
 import '../widgets/profile_info_card.dart';
-import '../widgets/profile_settings_card.dart';
 
 class StudentProfilePage extends StatelessWidget {
   const StudentProfilePage({super.key});
@@ -60,14 +61,17 @@ class StudentProfilePage extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              const ProfileSettingsCard()
+              // Correction : Suppression du 'const' et passage du callback
+              AppSettingsCard(
+                onChangePassword: () => showChangePasswordDialog(context),
+              )
                   .animate()
                   .fadeIn(delay: 300.ms)
                   .slideY(begin: .15),
 
               const SizedBox(height: 24),
 
-              const LogoutCard()
+              const AppLogoutCard()
                   .animate()
                   .fadeIn(delay: 450.ms)
                   .slideY(begin: .15),

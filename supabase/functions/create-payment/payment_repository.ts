@@ -1,6 +1,17 @@
 import { supabase } from "../_shared/supabase.ts";
 import { Payment } from "../_shared/types.ts";
 
+/// Erreur métier conservant le code et le message d'origine de PostgreSQL.
+export class PaymentCreationError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string | undefined,
+  ) {
+    super(message);
+    this.name = "PaymentCreationError";
+  }
+}
+
 export async function createPendingPayment({
   studentId,
   examSessionId,
@@ -16,47 +27,51 @@ export async function createPendingPayment({
   txRef: string;
   paymentMethod: string;
 }): Promise<Payment> {
-  console.log("========== PAYMENT INSERT ==========");
+  console.log("========== ATOMIC PAYMENT CREATION ==========");
   console.log("Student ID :", studentId);
   console.log("Exam Session ID :", examSessionId);
   console.log("Amount :", amount);
   console.log("Currency :", currency);
-  console.log("TX REF :", txRef);
   console.log("Payment Method :", paymentMethod);
+  console.log("TX REF :", txRef);
 
-  // Vérification avant l'insertion
-  console.log("TX REF reçu dans repository :", txRef);
+  const { data, error } = await supabase.rpc(
+    "create_pending_payment_atomic",
+    {
+      p_student_id: studentId,
+      p_exam_session_id: examSessionId,
+      p_amount: amount,
+      p_currency: currency,
+      p_payment_method: paymentMethod,
+      p_tx_ref: txRef,
+    },
+  );
 
-  const { data, error } = await supabase
-    .from("payments")
-    .insert({
-      student_id: studentId,
-      exam_session_id: examSessionId,
-      amount,
-      currency,
-      payment_method: paymentMethod,
-      payment_channel: "Flutterwave",
-      provider: "Flutterwave",
-      flutterwave_tx_ref: txRef,
-      flutterwave_transaction_id: null,
-      status: "pending",
-    })
-    .select()
-    .single();
+  if (error) {
+    console.error("Échec de la création atomique :", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
 
-  // Vérification après l'insertion
-  console.log("Paiement inséré :", data);
-  console.log("Erreur insertion :", error);
-
-  if (error || !data) {
-    throw new Error(
-      `Erreur création paiement: ${
-        error?.message ?? "Données paiement absentes"
-      } | code=${error?.code ?? ""} | details=${
-        error?.details ?? ""
-      } | hint=${error?.hint ?? ""}`,
+    throw new PaymentCreationError(
+      error.message,
+      error.code,
     );
   }
 
-  return data as Payment;
+  if (!data) {
+    throw new Error(
+      "La fonction SQL n'a retourné aucun paiement.",
+    );
+  }
+
+  const payment = data as Payment;
+
+  console.log("Paiement créé atomiquement :", payment.id);
+  console.log("Statut :", payment.status);
+  console.log("TX REF enregistré :", payment.flutterwave_tx_ref);
+
+  return payment;
 }

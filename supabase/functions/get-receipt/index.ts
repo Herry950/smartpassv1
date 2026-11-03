@@ -1,381 +1,395 @@
-import { withSupabase } from "npm:@supabase/server@^1";
-import type { Database } from "../../../database.types.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { generateReceiptSignature } from "../sign-document/signer.ts";
 
-type PaymentRow = Database["public"]["Tables"]["payments"]["Row"];
-type StudentRow = Database["public"]["Tables"]["students"]["Row"];
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
-type JsonObject = Record<string, unknown>;
-
-function jsonResponse(
-body: JsonObject,
-status = 200,
-): Response {
-return Response.json(body, { status });
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
 }
 
-/**
-
-* Génère une signature HMAC-SHA256.
-* Le format doit rester identique à celui de sign-document.
-  */
-  async function generateReceiptSignature(
-  secret: string,
-  payload: string,
-  ): Promise<string> {
-  const encoder = new TextEncoder();
-
-const key = await crypto.subtle.importKey(
-"raw",
-encoder.encode(secret),
-{ name: "HMAC", hash: "SHA-256" },
-false,
-["sign"],
-);
-
-const signature = await crypto.subtle.sign(
-"HMAC",
-key,
-encoder.encode(payload),
-);
-
-return Array.from(new Uint8Array(signature))
-.map((byte) => byte.toString(16).padStart(2, "0"))
-.join("");
+interface PaymentForVerification {
+  id: string;
+  student_id: string;
+  exam_session_id: string;
+  amount: number | string;
+  currency: string;
+  status: string;
+  payment_method: string;
+  payment_channel: string;
+  receipt_number: string | null;
+  receipt_signature: string | null;
+  flutterwave_transaction_id: string | null;
+  paid_at: string | null;
 }
 
-/**
+interface AssistantRecord {
+  id: string;
+  auth_user_id: string;
+  is_active: boolean;
+}
 
-* Compare les signatures sans arrêter la comparaison
-* au premier caractère différent.
-  */
-  function signaturesMatch(
-  expected: string,
-  actual: string,
-  ): boolean {
-  if (
-  !/^[a-f0-9]{64}$/i.test(expected) ||
-  !/^[a-f0-9]{64}$/i.test(actual)
-  ) {
-  return false;
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+Deno.serve(async (request: Request): Promise<Response> => {
+  if (request.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-let difference = 0;
+  if (request.method !== "POST") {
+    return jsonResponse(405, {
+      success: false,
+      message: "Méthode non autorisée.",
+    });
+  }
 
-for (let i = 0; i < expected.length; i++) {
-difference |= expected.charCodeAt(i) ^ actual.charCodeAt(i);
-}
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const receiptSecret = Deno.env.get("RECEIPT_SECRET");
 
-return difference === 0;
-}
+    if (
+      !supabaseUrl ||
+      !anonKey ||
+      !serviceRoleKey ||
+      !receiptSecret
+    ) {
+      console.error("Configuration serveur incomplète.");
 
-export default {
-fetch: withSupabase<Database>(
-{ auth: "user" },
-async (req, ctx) => {
-try {
-// 1. Seules les requêtes POST sont autorisées.
-if (req.method !== "POST") {
-return jsonResponse(
-{
-success: false,
-message: "Méthode HTTP non autorisée.",
-},
-405,
-);
-}
-
-    // 2. Vérifier l'utilisateur authentifié.
-    const userId = ctx.userClaims?.id;
-
-    if (!userId) {
-      return jsonResponse(
-        {
-          success: false,
-          result: "unauthorized",
-          message: "Utilisateur non authentifié.",
-        },
-        401,
-      );
+      return jsonResponse(500, {
+        success: false,
+        message: "Configuration du service de vérification incomplète.",
+      });
     }
 
-    // 3. Le client administrateur est utilisé uniquement
-    // dans cette fonction côté serveur.
-    const supabase = ctx.supabaseAdmin;
+    const authorization = request.headers.get("Authorization");
 
-    // 4. Vérifier que l'utilisateur est un assistant actif.
+    if (!authorization?.startsWith("Bearer ")) {
+      return jsonResponse(401, {
+        success: false,
+        message: "Authentification requise.",
+      });
+    }
+
+    const token = authorization.slice("Bearer ".length).trim();
+
+    if (!token) {
+      return jsonResponse(401, {
+        success: false,
+        message: "Jeton d'authentification absent.",
+      });
+    }
+
+    // Le client authentifié sert uniquement à vérifier l'identité.
+    const authClient = createClient(supabaseUrl, anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+
     const {
-      data: assistant,
+      data: authData,
+      error: authError,
+    } = await authClient.auth.getUser(token);
+
+    if (authError || !authData.user) {
+      return jsonResponse(401, {
+        success: false,
+        message: "Session utilisateur invalide ou expirée.",
+      });
+    }
+
+    const userId = authData.user.id;
+
+    const supabase = createClient(
+      supabaseUrl,
+      serviceRoleKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
+
+    // La vérification d'un reçu est réservée aux assistants actifs.
+    const {
+      data: assistantData,
       error: assistantError,
     } = await supabase
       .from("assistants")
-      .select("id, is_active")
+      .select("id, auth_user_id, is_active")
       .eq("auth_user_id", userId)
       .maybeSingle();
 
     if (assistantError) {
       console.error(
-        "Erreur de vérification de l'assistant:",
+        "Erreur de lecture de l'assistant :",
         assistantError.message,
       );
 
-      return jsonResponse(
-        {
-          success: false,
-          message: "Impossible de vérifier les autorisations.",
-        },
-        500,
-      );
+      throw new Error("Impossible de vérifier le profil de l'assistant.");
     }
+
+    const assistant = assistantData as AssistantRecord | null;
 
     if (!assistant || assistant.is_active !== true) {
-      return jsonResponse(
-        {
-          success: false,
-          result: "forbidden",
-          message: "Accès réservé aux assistants actifs.",
-        },
-        403,
-      );
+      return jsonResponse(403, {
+        success: false,
+        message: "Un compte assistant actif est requis.",
+      });
     }
 
-    // 5. Lire et valider le numéro du reçu.
     let body: { receipt_number?: unknown };
 
     try {
-      body = await req.json();
+      body = await request.json();
     } catch {
-      return jsonResponse(
-        {
-          success: false,
-          message: "Le corps de la requête est invalide.",
-        },
-        400,
-      );
+      return jsonResponse(400, {
+        success: false,
+        message: "Corps JSON invalide.",
+      });
     }
 
-    const receiptNumber = body?.receipt_number;
-
-    if (
-      typeof receiptNumber !== "string" ||
-      !/^SP-\d{4}-\d{6}$/.test(receiptNumber)
-    ) {
-      return jsonResponse(
-        {
-          success: false,
-          message: "Numéro de reçu invalide.",
-        },
-        400,
-      );
+    if (!isNonEmptyString(body.receipt_number)) {
+      return jsonResponse(400, {
+        success: false,
+        message: "Le numéro du reçu est obligatoire.",
+      });
     }
 
-    // 6. Rechercher le paiement officiel.
+    const receiptNumber = body.receipt_number.trim();
+
+    if (!/^SP-\d{4}-\d{6}$/.test(receiptNumber)) {
+      return jsonResponse(400, {
+        success: false,
+        authentic: false,
+        message: "Format du numéro de reçu invalide.",
+      });
+    }
+
     const {
       data: paymentData,
       error: paymentError,
     } = await supabase
       .from("payments")
       .select(
-        "id, receipt_number, student_id, amount, currency, flutterwave_transaction_id, paid_at, status, receipt_signature",
+        [
+          "id",
+          "student_id",
+          "exam_session_id",
+          "amount",
+          "currency",
+          "status",
+          "payment_method",
+          "payment_channel",
+          "receipt_number",
+          "receipt_signature",
+          "flutterwave_transaction_id",
+          "paid_at",
+        ].join(", "),
       )
       .eq("receipt_number", receiptNumber)
       .maybeSingle();
 
     if (paymentError) {
       console.error(
-        "Erreur de recherche du paiement:",
+        "Erreur de lecture du paiement :",
         paymentError.message,
       );
 
-      return jsonResponse(
-        {
-          success: false,
-          message: "Impossible de vérifier le reçu.",
-        },
-        500,
-      );
+      throw new Error("Impossible de lire le paiement.");
     }
 
-    if (!paymentData) {
-      return jsonResponse(
-        {
-          success: false,
-          result: "not_found",
-          message: "Reçu introuvable dans le système officiel.",
-        },
-        404,
-      );
-    }
+    const payment = paymentData as PaymentForVerification | null;
 
-    // Le résultat est maintenant vérifié comme non nul.
-    const payment: Pick<
-      PaymentRow,
-      | "id"
-      | "receipt_number"
-      | "student_id"
-      | "amount"
-      | "currency"
-      | "flutterwave_transaction_id"
-      | "paid_at"
-      | "status"
-      | "receipt_signature"
-    > = paymentData;
-
-    // 7. Un paiement en attente ne prouve pas un paiement validé.
-    if (payment.status !== "validated") {
-      return jsonResponse({
-        success: true,
-        result: "not_validated",
-        message: "Ce paiement n'est pas encore validé.",
-        receipt_number: payment.receipt_number,
-        payment_status: payment.status,
+    if (!payment) {
+      return jsonResponse(404, {
+        success: false,
+        authentic: false,
+        message: "Reçu introuvable.",
       });
     }
 
-    // 8. Vérifier la présence du secret côté serveur.
-    const secret = Deno.env.get("RECEIPT_SECRET");
-
-    if (!secret) {
-      console.error("RECEIPT_SECRET est absent.");
-
-      return jsonResponse(
-        {
-          success: false,
-          message: "Le service de vérification est indisponible.",
-        },
-        500,
-      );
+    if (payment.status !== "validated") {
+      return jsonResponse(409, {
+        success: false,
+        authentic: false,
+        message: "Ce paiement n'est pas validé.",
+      });
     }
-
-    const transactionId = payment.flutterwave_transaction_id;
-    const paidAt = payment.paid_at;
-    const amount = payment.amount;
-    const currency = payment.currency;
-    const storedSignature = payment.receipt_signature;
-    const storedReceiptNumber = payment.receipt_number;
 
     if (
-      !storedReceiptNumber ||
-      !payment.student_id ||
-      !Number.isFinite(amount) ||
-      !currency ||
-      !transactionId ||
-      !paidAt ||
-      !storedSignature
+      !payment.receipt_signature ||
+      !payment.paid_at ||
+      !payment.receipt_number
     ) {
-      return jsonResponse({
+      return jsonResponse(409, {
         success: false,
-        result: "invalid_signature",
-        message:
-          "Le reçu ne contient pas toutes les données nécessaires à sa vérification.",
-        receipt_number: storedReceiptNumber,
+        authentic: false,
+        message: "Ce reçu n'a pas encore été signé.",
       });
     }
 
-    // 9. Reconstruire le payload exactement comme sign-document.
+    const isCashPayment =
+      payment.payment_method === "Espèces" &&
+      payment.payment_channel === "manual";
+
+    let transactionMarker: string;
+
+    if (isCashPayment) {
+      if (payment.flutterwave_transaction_id) {
+        return jsonResponse(409, {
+          success: false,
+          authentic: false,
+          message:
+            "Les informations du paiement en espèces sont incohérentes.",
+        });
+      }
+
+      transactionMarker = "CASH";
+    } else {
+      if (!isNonEmptyString(payment.flutterwave_transaction_id)) {
+        return jsonResponse(409, {
+          success: false,
+          authentic: false,
+          message: "Identifiant de transaction manquant.",
+        });
+      }
+
+      transactionMarker = payment.flutterwave_transaction_id;
+    }
+
     const dataToSign = [
-      storedReceiptNumber,
+      payment.receipt_number,
       payment.student_id,
-      amount,
-      currency,
-      transactionId,
-      paidAt,
+      Number(payment.amount),
+      payment.currency,
+      transactionMarker,
+      payment.paid_at,
     ].join("|");
 
     const expectedSignature = await generateReceiptSignature(
-      secret,
+      receiptSecret,
       dataToSign,
     );
 
-    // 10. Vérifier la signature cryptographique.
-    if (!signaturesMatch(expectedSignature, storedSignature)) {
-      return jsonResponse({
-        success: false,
-        result: "invalid_signature",
+    // Comparaison sans différence de longueur ni sortie anticipée.
+    const encoder = new TextEncoder();
+    const expectedBytes = encoder.encode(expectedSignature);
+    const actualBytes = encoder.encode(payment.receipt_signature);
+
+    let difference = expectedBytes.length ^ actualBytes.length;
+    const maxLength = Math.max(
+      expectedBytes.length,
+      actualBytes.length,
+    );
+
+    for (let i = 0; i < maxLength; i++) {
+      difference |=
+        (expectedBytes[i] ?? 0) ^ (actualBytes[i] ?? 0);
+    }
+
+    if (difference !== 0) {
+      return jsonResponse(200, {
+        success: true,
+        authentic: false,
         message:
-          "Signature invalide : l'authenticité du reçu n'est pas confirmée.",
-        receipt_number: storedReceiptNumber,
+          "La signature du reçu est invalide. Son authenticité ne peut pas être confirmée.",
       });
     }
 
-    // 11. Récupérer les informations officielles de l'étudiant.
     const {
-      data: studentData,
+      data: student,
       error: studentError,
     } = await supabase
       .from("students")
-      .select(
-        "full_name, matricule, faculty, department, promotion",
-      )
+      .select("*")
       .eq("id", payment.student_id)
       .maybeSingle();
 
     if (studentError) {
       console.error(
-        "Erreur de recherche de l'étudiant:",
+        "Erreur de lecture de l'étudiant :",
         studentError.message,
       );
 
-      return jsonResponse(
-        {
-          success: false,
-          message:
-            "Impossible de récupérer les informations de l'étudiant.",
-        },
-        500,
-      );
+      throw new Error("Impossible de lire les informations de l'étudiant.");
     }
 
-    if (!studentData) {
-      return jsonResponse({
+    if (!student) {
+      return jsonResponse(404, {
         success: false,
-        result: "student_not_found",
-        message:
-          "Le paiement est signé, mais l'étudiant correspondant est introuvable.",
-        receipt_number: storedReceiptNumber,
+        authentic: false,
+        message: "Étudiant associé au reçu introuvable.",
       });
     }
 
-    const student: Pick<
-      StudentRow,
-      "full_name" | "matricule" | "faculty" | "department" | "promotion"
-    > = studentData;
+    const {
+      data: examSession,
+      error: sessionError,
+    } = await supabase
+      .from("exam_sessions")
+      .select("*")
+      .eq("id", payment.exam_session_id)
+      .maybeSingle();
 
-    // 12. Retourner uniquement les informations nécessaires.
-    return jsonResponse({
+    if (sessionError) {
+      console.error(
+        "Erreur de lecture de la session :",
+        sessionError.message,
+      );
+
+      throw new Error("Impossible de lire la session d'examen.");
+    }
+
+    if (!examSession) {
+      return jsonResponse(404, {
+        success: false,
+        authentic: false,
+        message: "Session d'examen associée au reçu introuvable.",
+      });
+    }
+
+    return jsonResponse(200, {
       success: true,
-      result: "authentic",
-      message: "Reçu authentique. Signature vérifiée avec succès.",
+      authentic: true,
       receipt: {
-        receipt_number: storedReceiptNumber,
-        amount,
-        currency,
-        paid_at: paidAt,
+        receipt_number: payment.receipt_number,
+        amount: Number(payment.amount),
+        currency: payment.currency,
+        paid_at: payment.paid_at,
         status: payment.status,
+        payment_method: payment.payment_method,
+        payment_channel: payment.payment_channel,
       },
-      student: {
-        full_name: student.full_name,
-        matricule: student.matricule,
-        faculty: student.faculty,
-        department: student.department,
-        promotion: student.promotion,
-      },
+      student,
+      exam_session: examSession,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(
-      "Erreur interne de vérification du reçu:",
+      "Erreur get-receipt :",
       error instanceof Error ? error.message : String(error),
     );
 
-    return jsonResponse(
-      {
-        success: false,
-        message:
-          "Une erreur interne est survenue pendant la vérification.",
-      },
-      500,
-    );
+    return jsonResponse(500, {
+      success: false,
+      message:
+        "Une erreur est survenue pendant la vérification du reçu.",
+    });
   }
-},
-
-),
-};
+});

@@ -456,3 +456,11 @@ entrypoint = "./functions/get-receipt/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/get-receipt/*.html" ]
+
+[functions.create-assistant]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/create-assistant/index.ts"
+
+[functions.activate-assistant]
+verify_jwt = true

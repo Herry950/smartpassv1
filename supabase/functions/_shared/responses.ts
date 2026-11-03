@@ -79,6 +79,27 @@ export function notFound(message: string) {
   );
 }
 
+/// Réponse pour un conflit métier, par exemple un paiement déjà effectué.
+export function conflict(
+  code: string,
+  message: string,
+) {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      code,
+      error: message,
+    }),
+    {
+      status: 409,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
 export function serverError(message: string) {
   return new Response(
     JSON.stringify({
