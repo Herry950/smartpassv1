@@ -2,8 +2,10 @@ import 'package:go_router/go_router.dart';
 
 import '../features/admin/presentation/pages/admin_dashboard_page.dart';
 import '../features/assistant/presentation/pages/assistant_dashboard_page.dart';
+import '../features/auth/presentation/pages/assistant_invitation_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/role_selection_page.dart';
+import '../features/auth/presentation/pages/student_register_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
 import '../features/student/presentation/pages/student_dashboard_page.dart';
 import '../features/student/presentation/pages/student_profile_page.dart';
@@ -11,11 +13,13 @@ import '../features/student/presentation/pages/student_card_page.dart';
 import '../features/student/presentation/pages/student_payment_page.dart';
 import '../features/student/presentation/pages/student_receipts_page.dart';
 import '../features/student/presentation/pages/student_notifications_page.dart';
+import '../features/admin/presentation/pages/assistant_management_page.dart';
 
 class AppRouter {
   AppRouter._();
 
   static final GoRouter router = GoRouter(
+    debugLogDiagnostics: true,
     initialLocation: '/',
     routes: [
       GoRoute(
@@ -26,6 +30,11 @@ class AppRouter {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginPage(),
+      ),
+
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const StudentRegisterPage(),
       ),
 
       GoRoute(
@@ -71,6 +80,13 @@ class AppRouter {
       GoRoute(
         path: '/admin',
         builder: (context, state) => const AdminDashboardPage(),
+      ),
+      GoRoute(
+        path: '/admin/assistants',
+        builder: (context, state) => const AssistantManagementPage(),
+      ),
+      GoRoute(path: '/auth/invite', builder: (context, state) =>
+        const AssistantInvitationPage(),
       ),
     ],
   );

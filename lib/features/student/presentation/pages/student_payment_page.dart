@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/feedback/smartpass_feedback.dart';
+import '../../../../core/feedback/smartpass_messages.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../data/datasource/payment_remote_datasource.dart';
 import '../../data/repositories/exam_session_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../widgets/payment_amount_card.dart';
@@ -19,10 +21,8 @@ class StudentPaymentPage extends StatefulWidget {
       _StudentPaymentPageState();
 }
 
-class _StudentPaymentPageState
-    extends State<StudentPaymentPage> {
-  // Option par défaut alignée sur les choix disponibles
-  String selectedMethod = "Orange";
+class _StudentPaymentPageState extends State<StudentPaymentPage> {
+  String selectedMethod = 'Orange';
 
   bool isLoading = false;
   bool loadingPage = true;
@@ -47,14 +47,115 @@ class _StudentPaymentPageState
         loadingPage = false;
       });
     } catch (e) {
-      if (!mounted) return; 
+      if (!mounted) return;
 
       setState(() {
         loadingPage = false;
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
+    }
+  }
+
+  Future<void> _startPayment() async {
+    if (isLoading) return;
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final user = AuthService.currentUser;
+
+      if (user == null) {
+        throw const PaymentRemoteException(
+          message: 'Utilisateur non connecté.',
+        );
+      }
+
+      final email = user.email;
+
+      if (email == null || email.isEmpty) {
+        throw const PaymentRemoteException(
+          message:
+              'Aucune adresse e-mail trouvée pour cet utilisateur.',
+        );
+      }
+
+      final checkoutUrl = await PaymentRepository.createPayment(
+        examSessionId: examSession!['id'].toString(),
+        email: email,
+        paymentMethod: selectedMethod,
+      );
+
+      if (!mounted) return;
+
+      final uri = Uri.tryParse(checkoutUrl);
+
+      if (uri == null ||
+          (uri.scheme != 'https' && uri.scheme != 'http') ||
+          uri.host.isEmpty) {
+        throw const PaymentRemoteException(
+          message: 'Le lien de paiement reçu est invalide.',
+        );
+      }
+
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!opened) {
+        throw const PaymentRemoteException(
+          message:
+              'Impossible d’ouvrir le lien de paiement. '
+              'Veuillez réessayer.',
+        );
+      }
+    } on PaymentRemoteException catch (e) {
+      if (!mounted) return;
+
+      switch (e.code) {
+        case 'PAYMENT_ALREADY_EXISTS':
+          await SmartPassFeedback.showDialogMessage(
+            context,
+            code: SmartPassMessageCode.paymentAlreadyValidated,
+            role: SmartPassRole.student,
+          );
+          break;
+
+        case 'PAYMENT_PENDING':
+          await SmartPassFeedback.showDialogMessage(
+            context,
+            code: SmartPassMessageCode.paymentPending,
+            role: SmartPassRole.student,
+          );
+          break;
+
+        default:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible de démarrer le paiement. '
+            'Veuillez réessayer. Détail : $e',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -80,7 +181,7 @@ class _StudentPaymentPageState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Paiement"),
+        title: const Text('Paiement'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -88,22 +189,21 @@ class _StudentPaymentPageState
           child: Column(
             children: [
               const PaymentHeader(),
-
               const SizedBox(height: 22),
 
               PaymentAmountCard(
-                amount: examSession!["fee_amount"].toString(),
-                currency: examSession!["currency"] ?? "USD",
+                amount: examSession!['fee_amount'].toString(),
+                currency: examSession!['currency'] ?? 'USD',
               ),
 
               const SizedBox(height: 22),
 
               PaymentReasonCard(
-                reason: "Accès aux examens",
-                session: examSession!["session_name"] ?? "--",
-                semester: examSession!["semester"] ?? "--",
+                reason: 'Accès aux examens',
+                session: examSession!['session_name'] ?? '--',
+                semester: examSession!['semester'] ?? '--',
                 academicYear:
-                    examSession!["academic_years"]?["name"] ?? "--",
+                    examSession!['academic_years']?['name'] ?? '--',
               ),
 
               const SizedBox(height: 22),
@@ -121,68 +221,9 @@ class _StudentPaymentPageState
 
               PaymentButton(
                 paymentOpen:
-                    examSession!["payment_open"] ?? false,
+                    examSession!['payment_open'] ?? false,
                 isLoading: isLoading,
-                onPressed: () async {
-                  print("1");
-                  setState(() {
-                    isLoading = true;
-                  });
-                  print("2");
-                  try {
-                    final user = AuthService.currentUser;
-                    print("3");
-                    if (user == null) {
-                      throw Exception(
-                        "Utilisateur non connecté.",
-                      );
-                    }
-
-                    final email = user.email;
-                    print("4");
-                    if (email == null || email.isEmpty) {
-                      throw Exception(
-                        "Aucune adresse e-mail trouvée pour cet utilisateur.",
-                      );
-                    }
-
-                    final checkoutUrl =
-                        await PaymentRepository.createPayment(
-                      examSessionId: examSession!["id"],
-                      email: email,
-                      paymentMethod: selectedMethod, // <-- Transmission du moyen de paiement choisi
-                    );
-                    print("5 : $checkoutUrl");
-                    if (!mounted) return;
-
-                    final uri = Uri.parse(checkoutUrl);
-
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } else {
-                      throw Exception(
-                        "Impossible d'ouvrir le lien de paiement : $checkoutUrl",
-                      );
-                    }
-                  } catch (e) {
-                    if (!mounted) return;
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(e.toString()),
-                      ),
-                    );
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        isLoading = false;
-                      });
-                    }
-                  }
-                },
+                onPressed: _startPayment,
               ),
             ],
           ),
