@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class ProfileSettingsCard extends StatelessWidget {
@@ -29,7 +30,7 @@ class ProfileSettingsCard extends StatelessWidget {
               icon: Icons.lock_outline_rounded,
               title: "Modifier le mot de passe",
               subtitle: "Sécurisez votre compte",
-              color: Colors.blue,
+              color: AppColors.primary,
               onTap: () {},
             ),
 
@@ -38,7 +39,7 @@ class ProfileSettingsCard extends StatelessWidget {
               icon: Icons.language_rounded,
               title: "Langue",
               subtitle: "Français",
-              color: Colors.green,
+              color: AppColors.success,
               onTap: () {},
             ),
 
@@ -47,7 +48,7 @@ class ProfileSettingsCard extends StatelessWidget {
               icon: Icons.notifications_active_rounded,
               title: "Notifications",
               subtitle: "Gérer les alertes SmartPass",
-              color: Colors.orange,
+              color: AppColors.primary,
               onTap: () {},
             ),
 
@@ -56,7 +57,7 @@ class ProfileSettingsCard extends StatelessWidget {
               icon: Icons.security_rounded,
               title: "Confidentialité",
               subtitle: "Protection des données",
-              color: Colors.purple,
+              color: AppColors.primary,
               onTap: () {},
             ),
 
@@ -65,7 +66,7 @@ class ProfileSettingsCard extends StatelessWidget {
               icon: Icons.info_outline_rounded,
               title: "À propos de SmartPass",
               subtitle: "Version 1.0.0",
-              color: Colors.teal,
+              color: AppColors.primary,
               onTap: () {},
             ),
           ],

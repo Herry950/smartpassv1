@@ -26,7 +26,7 @@ class NotificationsCard extends StatelessWidget {
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(
                   Icons.notifications_active_rounded,

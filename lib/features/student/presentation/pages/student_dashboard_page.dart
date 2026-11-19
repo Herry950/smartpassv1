@@ -14,8 +14,22 @@ import 'package:myprojectflut/features/student/presentation/widgets/student_dash
 import 'package:myprojectflut/features/student/presentation/widgets/student_identity_card.dart';
 import 'package:myprojectflut/features/student/presentation/widgets/student_status_card.dart';
 
-class StudentDashboardPage extends StatelessWidget {
+class StudentDashboardPage extends StatefulWidget {
   const StudentDashboardPage({super.key});
+
+  @override
+  State<StudentDashboardPage> createState() => _StudentDashboardPageState();
+}
+
+class _StudentDashboardPageState extends State<StudentDashboardPage> {
+  late Future<Map<String, dynamic>?> _future =
+      StudentDashboardRepository.loadDashboard();
+
+  void _refresh() {
+    setState(() {
+      _future = StudentDashboardRepository.loadDashboard();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,9 +39,16 @@ class StudentDashboardPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Espace Étudiant"),
+        actions: [
+          IconButton(
+            tooltip: 'Actualiser',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
       ),
       body: FutureBuilder<Map<String, dynamic>?>(
-        future: StudentDashboardRepository.loadDashboard(),
+        future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState ==
               ConnectionState.waiting) {
@@ -80,6 +101,10 @@ class StudentDashboardPage extends StatelessWidget {
                 children: [
                   StudentDashboardHeader(
                     student: student,
+                    nextExamDate:
+                        dashboard['nextExamDate'] as DateTime?,
+                    nextExamLabel:
+                        dashboard['nextExamLabel'] as String?,
                   )
                       .animate()
                       .fadeIn()
@@ -87,7 +112,14 @@ class StudentDashboardPage extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
-                  const DashboardStatsGrid()
+                  DashboardStatsGrid(
+                    examAuthorized: student.examAuthorized,
+                    paymentValidated: student.paymentValidated,
+                    upcomingExamCount:
+                        dashboard['upcomingExamCount'] as int? ?? 0,
+                    unreadNotificationCount:
+                        dashboard['unreadNotificationCount'] as int? ?? 0,
+                  )
                       .animate()
                       .fadeIn(delay: 220.ms)
                       .slideY(begin: .15),

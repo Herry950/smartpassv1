@@ -1,10 +1,24 @@
+import 'package:myprojectflut/shared/widgets/home_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:myprojectflut/core/services/student_search_service.dart';
 
+import '../widgets/access_control_section.dart';
+
 class MatriculeSearchPage extends StatefulWidget {
-  const MatriculeSearchPage({super.key});
+  /// Matricule à rechercher immédiatement (ex. issu du QR de la carte).
+  final String? initialMatricule;
+
+  /// Identifiant attendu (QR de la carte) : l'étudiant trouvé doit
+  /// correspondre exactement à la carte scannée.
+  final String? expectedStudentId;
+
+  const MatriculeSearchPage({
+    super.key,
+    this.initialMatricule,
+    this.expectedStudentId,
+  });
 
   @override
   State<MatriculeSearchPage> createState() => _MatriculeSearchPageState();
@@ -19,9 +33,93 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+
+    final initial = widget.initialMatricule?.trim();
+
+    if (initial != null && initial.isNotEmpty) {
+      _controller.text = initial;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _performSearch();
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Extrait et prépare le message d'erreur pour l'affichage.
+  ///
+  /// Le service StudentSearchService est responsable des erreurs
+  /// liées au compte assistant. Cette page ne refait pas ces contrôles.
+  String _extractErrorMessage(Object error) {
+    String? message;
+
+    // Récupération du message original des exceptions Supabase.
+    try {
+      final dynamic exception = error;
+      final dynamic rawMessage = exception.message;
+
+      if (rawMessage is String && rawMessage.trim().isNotEmpty) {
+        message = rawMessage.trim();
+      }
+    } catch (_) {
+      // Certaines exceptions ne possèdent pas de propriété message.
+    }
+
+    message ??= error.toString().trim();
+
+    final normalized = message.toLowerCase();
+
+    // Erreurs générales d'autorisation.
+    if (normalized.contains('permission denied') ||
+        normalized.contains('not authorized') ||
+        normalized.contains('unauthorized') ||
+        normalized.contains('forbidden')) {
+      return 'Accès refusé : vous ne disposez pas des autorisations '
+          'nécessaires pour effectuer cette opération.';
+    }
+
+    // Erreurs de connexion.
+    if (normalized.contains('socketexception') ||
+        normalized.contains('failed host lookup') ||
+        normalized.contains('network is unreachable') ||
+        normalized.contains('connection refused') ||
+        normalized.contains('clientexception')) {
+      return 'Impossible de contacter le serveur. '
+          'Vérifiez votre connexion Internet et réessayez.';
+    }
+
+    // Suppression des préfixes habituels des exceptions Dart.
+    message = message
+        .replaceFirst(
+          RegExp(r'^Exception:\s*', caseSensitive: false),
+          '',
+        )
+        .replaceFirst(
+          RegExp(r'^Error:\s*', caseSensitive: false),
+          '',
+        )
+        .trim();
+
+    if (message.isEmpty ||
+        message == 'Exception' ||
+        message == 'Error') {
+      return 'Une erreur inattendue est survenue pendant la recherche. '
+          'Veuillez réessayer.';
+    }
+
+    // Les messages métier du service sont conservés tels quels.
+    return message;
+  }
+
+  /// Relance la dernière recherche avec le matricule déjà saisi.
+  Future<void> _refreshSearch() async {
+    await _performSearch();
   }
 
   Future<void> _performSearch() async {
@@ -49,26 +147,43 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
 
       if (!mounted) return;
 
+      final expectedId = widget.expectedStudentId;
+      final foundStudent = result?['student'];
+
       if (result == null) {
         setState(() {
           _errorMessage =
               'Aucun étudiant trouvé avec le matricule : $matricule';
+        });
+      } else if (expectedId != null &&
+          matricule == widget.initialMatricule?.trim() &&
+          (foundStudent is! Map || foundStudent['id'] != expectedId)) {
+        // Le QR code ne correspond pas à l'étudiant enregistré :
+        // carte falsifiée ou obsolète.
+        setState(() {
+          _errorMessage =
+              'QR code non conforme : la carte scannée ne correspond pas '
+              'à l’étudiant enregistré sous ce matricule. Accès refusé.';
         });
       } else {
         setState(() {
           _searchResult = result;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (!mounted) return;
 
-      setState(() {
-        _errorMessage =
-            'Impossible de rechercher cet étudiant. '
-            'Vérifiez la connexion et les autorisations.';
-      });
+      final extractedMessage = _extractErrorMessage(e);
 
-      debugPrint('Erreur de recherche par matricule : $e');
+      debugPrint('========== ERREUR RECHERCHE MATRICULE ==========');
+      debugPrint('Erreur originale : $e');
+      debugPrint('Message affiché : $extractedMessage');
+      debugPrintStack(stackTrace: stackTrace);
+
+      setState(() {
+        _errorMessage = extractedMessage;
+        _searchResult = null;
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -88,8 +203,27 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                tooltip: 'Retour à la page précédente',
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () {
+                  Navigator.of(context).maybePop();
+                },
+              )
+            : null,
         title: const Text('Recherche par Matricule'),
         centerTitle: true,
+        actions: [
+          const HomeButton(),
+          IconButton(
+            tooltip: 'Actualiser la recherche',
+            onPressed: _isLoading ? null : _refreshSearch,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -107,8 +241,15 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
                   const SizedBox(height: 16),
                 ],
 
-                if (student is Map<String, dynamic>)
+                if (student is Map<String, dynamic>) ...[
                   _buildStudentCard(student, payments),
+                  const SizedBox(height: 20),
+                  AccessControlSection(
+                    studentId: student['id'].toString(),
+                    payments: payments,
+                    searchService: _searchService,
+                  ),
+                ],
               ],
             ),
           ),
@@ -136,7 +277,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
             decoration: InputDecoration(
               labelText: 'Matricule de l’étudiant (ULPGL)',
               hintText: 'Ex. : 21007',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.badge_outlined,
                 color: AppColors.primary,
               ),
@@ -267,7 +408,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
                   children: [
                     Text(
                       fullName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
@@ -285,7 +426,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
                       ),
                       child: Text(
                         'Matricule : ${student['matricule'] ?? 'N/A'}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.primaryDark,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -296,7 +437,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
                     Text(
                       'Année académique : '
                       '${student['academic_year'] ?? 'N/A'}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
@@ -310,7 +451,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
 
           const Divider(height: 32),
 
-          const Text(
+          Text(
             'Informations académiques ULPGL',
             style: TextStyle(
               fontSize: 15,
@@ -350,7 +491,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
 
           const Divider(height: 32),
 
-          const Text(
+          Text(
             'Paiements et sessions d’examen',
             style: TextStyle(
               fontSize: 15,
@@ -429,7 +570,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
               children: [
                 Text(
                   sessionName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
@@ -437,7 +578,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
                 const SizedBox(height: 5),
                 Text(
                   'Montant : $amount $currency',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -467,7 +608,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.warning),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Icon(
             Icons.warning_amber_rounded,
@@ -509,7 +650,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Sans photo',
             style: TextStyle(
               fontSize: 10,
@@ -543,7 +684,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
@@ -551,7 +692,7 @@ class _MatriculeSearchPageState extends State<MatriculeSearchPage> {
                 const SizedBox(height: 3),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,

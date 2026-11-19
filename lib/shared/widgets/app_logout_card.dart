@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -41,7 +42,7 @@ class AppLogoutCard extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: AppColors.error,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     vertical: 16,
@@ -74,7 +75,7 @@ class AppLogoutCard extends StatelessWidget {
                         ),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                            backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
                           ),
                           onPressed: () {

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/constants/supabase_constants.dart';
+
 /// Erreur métier renvoyée par le service de paiement SmartPass.
 class PaymentRemoteException implements Exception {
   const PaymentRemoteException({
@@ -29,6 +31,7 @@ class PaymentRemoteDataSource {
     required String examSessionId,
     required String email,
     required String paymentMethod,
+    String? redirectUrl,
   }) async {
     final session = _client.auth.currentSession;
 
@@ -38,8 +41,7 @@ class PaymentRemoteDataSource {
       );
     }
 
-    const url =
-        'https://jjbvpkdyliehgouinnav.supabase.co/functions/v1/create-payment';
+    final url = '${SupabaseConstants.url}/functions/v1/create-payment';
 
     print('========== CREATE PAYMENT ==========');
     print('URL : $url');
@@ -57,6 +59,7 @@ class PaymentRemoteDataSource {
         'exam_session_id': examSessionId,
         'email': email,
         'payment_method': paymentMethod,
+        if (redirectUrl != null) 'redirect_url': redirectUrl,
       }),
     );
 

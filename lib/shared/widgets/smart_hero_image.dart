@@ -32,7 +32,7 @@ class SmartHeroImage extends StatelessWidget {
         ],
       ),
 
-      child: const Center(
+      child: Center(
         child: Icon(
           Icons.school_rounded,
           size: 120,

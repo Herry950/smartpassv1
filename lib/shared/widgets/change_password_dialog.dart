@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 //dialog to change password
 
 import 'package:flutter/material.dart';
@@ -25,9 +26,9 @@ void showChangePasswordDialog(BuildContext context) {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   'Saisissez votre mot de passe actuel ainsi que le nouveau.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -99,7 +100,7 @@ void showChangePasswordDialog(BuildContext context) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Mot de passe mis à jour avec succès !'),
-                              backgroundColor: Colors.green,
+                              backgroundColor: AppColors.success,
                             ),
                           );
                         }
@@ -109,7 +110,7 @@ void showChangePasswordDialog(BuildContext context) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Erreur : ${e.message}'),
-                              backgroundColor: Colors.red,
+                              backgroundColor: AppColors.error,
                             ),
                           );
                         }
@@ -119,7 +120,7 @@ void showChangePasswordDialog(BuildContext context) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Échec de la mise à jour du mot de passe.'),
-                              backgroundColor: Colors.red,
+                              backgroundColor: AppColors.error,
                             ),
                           );
                         }

@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import 'package:myprojectflut/core/models/student.dart';
@@ -32,15 +33,15 @@ class PaymentHistoryCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.withValues(
+                    color: AppColors.primary.withValues(
                       alpha: .12,
                     ),
                     borderRadius:
                         BorderRadius.circular(16),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.history_rounded,
-                    color: Colors.indigo,
+                    color: AppColors.primary,
                     size: 28,
                   ),
                 ),

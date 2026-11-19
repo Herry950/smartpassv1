@@ -29,7 +29,7 @@ class LogoutCard extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: AppColors.error,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     vertical: 16,
@@ -63,7 +63,7 @@ class LogoutCard extends StatelessWidget {
 
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                            backgroundColor: AppColors.error,
                             foregroundColor: Colors.white,
                           ),
                           onPressed: () {

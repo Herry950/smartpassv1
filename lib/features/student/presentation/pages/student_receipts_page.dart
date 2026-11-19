@@ -1,3 +1,4 @@
+import 'package:myprojectflut/shared/widgets/home_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -15,6 +16,7 @@ class StudentReceiptsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        actions: const [HomeButton()],
         title: const Text("Mes reçus"),
       ),
       body: FutureBuilder<Student?>(

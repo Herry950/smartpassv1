@@ -126,7 +126,7 @@ class PaymentCard extends StatelessWidget {
               Text(
                 "$amount $currency",
                 style: const TextStyle(
-                  color: Colors.amber,
+                  color: AppColors.warning,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),

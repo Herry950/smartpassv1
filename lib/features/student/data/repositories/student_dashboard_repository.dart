@@ -1,6 +1,7 @@
+import 'package:flutter/material.dart' show DateUtils, debugPrint;
 import 'package:myprojectflut/core/models/student.dart';
 
-import 'notification_repository.dart';
+import '../datasource/student_remote_datasource.dart';
 import 'payment_repository.dart';
 import 'student_card_repository.dart';
 import 'student_repository.dart';
@@ -9,55 +10,62 @@ class StudentDashboardRepository {
   StudentDashboardRepository._();
 
   static Future<Map<String, dynamic>?> loadDashboard() async {
-    print("========== DASHBOARD ==========");
-
-    final Student? student =
-        await StudentRepository.getCurrentStudent();
+    final Student? student = await StudentRepository.getCurrentStudent();
 
     if (student == null) {
-      print("Étudiant introuvable.");
+      debugPrint('Tableau de bord : étudiant introuvable.');
       return null;
     }
 
-    print("Étudiant chargé : ${student.fullName}");
+    final results = await Future.wait<dynamic>([
+      PaymentRepository.getLastPayment(student.id),
+      PaymentRepository.getPayments(student.id),
+      StudentRemoteDataSource.getNotifications(student.id),
+      StudentCardRepository.getStudentCard(student.id),
+      StudentRemoteDataSource.getStudentExams(),
+    ]);
 
-    final payment =
-        await PaymentRepository.getLastPayment(
-      student.id,
-    );
+    final notifications = results[2] as List<Map<String, dynamic>>;
+    final exams = results[4] as List<Map<String, dynamic>>;
 
-    print("Dernier paiement : $payment");
+    // Prochain examen : premier examen programmé aujourd'hui ou plus tard
+    // (la liste est déjà triée par date puis heure de début).
+    final today = DateUtils.dateOnly(DateTime.now());
+    Map<String, dynamic>? nextExam;
 
-    final payments =
-        await PaymentRepository.getPayments(
-      student.id,
-    );
+    for (final exam in exams) {
+      final date = DateTime.tryParse(exam['exam_date']?.toString() ?? '');
+      if (date != null && !DateUtils.dateOnly(date).isBefore(today)) {
+        nextExam = exam;
+        break;
+      }
+    }
 
-    print("Nombre de paiements : ${payments.length}");
+    final upcomingCount = exams.where((exam) {
+      final date = DateTime.tryParse(exam['exam_date']?.toString() ?? '');
+      return date != null && !DateUtils.dateOnly(date).isBefore(today);
+    }).length;
 
-    final notifications =
-        await NotificationRepository.getNotifications();
-
-    print(
-      "Nombre de notifications : ${notifications.length}",
-    );
-
-    final studentCard =
-        await StudentCardRepository.getStudentCard(
-      student.id,
-    );
-
-    print("Carte étudiant : $studentCard");
-
-    print("Dashboard chargé avec succès.");
-    print("===============================");
+    final course = nextExam?['courses'];
 
     return {
       'student': student,
-      'payment': payment,
-      'payments': payments,
+      'payment': results[0],
+      'payments': results[1],
       'notifications': notifications,
-      'studentCard': studentCard,
+      'studentCard': results[3],
+      'exams': exams,
+      'upcomingExamCount': upcomingCount,
+      'unreadNotificationCount':
+          notifications.where((n) => n['is_read'] != true).length,
+      'nextExamDate': nextExam == null
+          ? null
+          : DateTime.tryParse(nextExam['exam_date'].toString()),
+      'nextExamLabel': course is Map
+          ? [course['code'], course['name']]
+              .whereType<String>()
+              .join(' — ')
+          : null,
     };
   }
 }

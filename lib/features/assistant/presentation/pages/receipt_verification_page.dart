@@ -1,3 +1,4 @@
+import 'package:myprojectflut/shared/widgets/home_button.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,7 +8,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:myprojectflut/app/theme/app_colors.dart';
 
 class ReceiptVerificationPage extends StatefulWidget {
-  const ReceiptVerificationPage({super.key});
+  /// Numéro de reçu à vérifier immédiatement (ex. issu d'un scan QR).
+  final String? initialReceiptNumber;
+
+  const ReceiptVerificationPage({
+    super.key,
+    this.initialReceiptNumber,
+  });
 
   @override
   State<ReceiptVerificationPage> createState() =>
@@ -20,11 +27,27 @@ class _ReceiptVerificationPageState
 
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+
+    final initial = widget.initialReceiptNumber?.trim();
+
+    if (initial != null && initial.isNotEmpty) {
+      _receiptController.text = initial;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _verifyReceipt(initial);
+      });
+    }
+  }
+
   Map<String, dynamic>? _verificationResult;
   String? _errorMessage;
 
   Map<String, dynamic>? _asMap(dynamic value) {
-    if (value is Map<String, dynamic>) return value;
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
 
     if (value is Map) {
       return Map<String, dynamic>.from(value);
@@ -33,43 +56,180 @@ class _ReceiptVerificationPageState
     return null;
   }
 
-  String _extractFunctionError(FunctionException error) {
-    final details = error.details;
-    final detailsMap = _asMap(details);
+  /// Recherche récursive du véritable message d'erreur.
+  String? _extractMessageFromValue(
+    dynamic value, {
+    int depth = 0,
+  }) {
+    if (value == null || depth > 5) {
+      return null;
+    }
 
-    if (detailsMap != null) {
-      final message = detailsMap['message'];
+    if (value is String) {
+      final text = value.trim();
 
-      if (message is String && message.trim().isNotEmpty) {
-        return message;
+      if (text.isEmpty) {
+        return null;
+      }
+
+      try {
+        final decoded = jsonDecode(text);
+
+        if (decoded is Map || decoded is List) {
+          return _extractMessageFromValue(
+            decoded,
+            depth: depth + 1,
+          );
+        }
+      } catch (_) {
+        // Le contenu n'est pas nécessairement du JSON.
+      }
+
+      return text;
+    }
+
+    if (value is Map) {
+      final map = Map<String, dynamic>.from(value);
+
+      const messageKeys = [
+        'message',
+        'error_description',
+        'error',
+        'details',
+        'hint',
+        'reason',
+        'description',
+      ];
+
+      for (final key in messageKeys) {
+        if (!map.containsKey(key)) {
+          continue;
+        }
+
+        final extracted = _extractMessageFromValue(
+          map[key],
+          depth: depth + 1,
+        );
+
+        if (extracted != null && extracted.isNotEmpty) {
+          return extracted;
+        }
+      }
+
+      const nestedKeys = [
+        'data',
+        'response',
+        'body',
+      ];
+
+      for (final key in nestedKeys) {
+        if (!map.containsKey(key)) {
+          continue;
+        }
+
+        final extracted = _extractMessageFromValue(
+          map[key],
+          depth: depth + 1,
+        );
+
+        if (extracted != null && extracted.isNotEmpty) {
+          return extracted;
+        }
       }
     }
 
-    if (details is String) {
-      try {
-        final decodedMap = _asMap(jsonDecode(details));
-        final message = decodedMap?['message'];
+    return null;
+  }
 
-        if (message is String && message.trim().isNotEmpty) {
-          return message;
-        }
-      } catch (_) {
-        // Les détails ne sont pas nécessairement du JSON.
-      }
+  /// Détermine si le code reçu correspond à un refus d'accès.
+  bool _isAccessDeniedResult(String resultCode) {
+    const accessDeniedCodes = {
+      'unauthorized',
+      'forbidden',
+      'access_denied',
+      'assistant_inactive',
+      'inactive_assistant',
+      'assistant_not_active',
+      'assistant_disabled',
+      'account_inactive',
+      'permission_denied',
+    };
+
+    return accessDeniedCodes.contains(
+      resultCode.trim().toLowerCase(),
+    );
+  }
+
+  /// Message affiché lorsque le serveur refuse l'accès.
+  String get _assistantAccessDeniedMessage {
+    return "Accès refusé : votre compte assistant est "
+        "actuellement désactivé ou ne dispose pas des "
+        "autorisations nécessaires. Veuillez contacter "
+        "l’administration de votre faculté.";
+  }
+
+  /// Extraction du message renvoyé par la fonction Supabase.
+  String _extractFunctionError(FunctionException error) {
+    debugPrint('========== ERREUR GET-RECEIPT ==========');
+    debugPrint('HTTP STATUS : ${error.status}');
+    debugPrint('DETAILS : ${error.details}');
+    debugPrint('REASON : ${error.reasonPhrase}');
+    debugPrint('========================================');
+
+    final detailsMessage = _extractMessageFromValue(
+      error.details,
+    );
+
+    if (detailsMessage != null &&
+        detailsMessage.trim().isNotEmpty) {
+      return detailsMessage;
+    }
+
+    final reason = error.reasonPhrase?.trim();
+
+    if (reason != null &&
+        reason.isNotEmpty &&
+        reason.toLowerCase() != 'forbidden' &&
+        reason.toLowerCase() != 'unauthorized') {
+      return reason;
     }
 
     switch (error.status) {
       case 401:
-        return "Votre session a expiré. Reconnectez-vous.";
+        return "Votre session a expiré. Veuillez vous reconnecter.";
+
       case 403:
-        return "Accès réservé aux assistants actifs.";
+        return _assistantAccessDeniedMessage;
+
       case 404:
         return "Aucun reçu correspondant à ce numéro n'a été trouvé.";
+
       case 500:
-        return "Le serveur n'a pas pu vérifier le reçu.";
+        return "Le serveur n'a pas pu vérifier le reçu. "
+            "Veuillez réessayer ultérieurement.";
+
       default:
-        return "La vérification a échoué (HTTP ${error.status}).";
+        return "La vérification a échoué "
+            "(HTTP ${error.status}). "
+            "Veuillez réessayer.";
     }
+  }
+
+  /// Actualise la vérification du reçu actuellement saisi.
+  Future<void> _refreshVerification() async {
+    if (_isLoading) return;
+
+    final code = _receiptController.text.trim();
+
+    if (code.isEmpty) {
+      setState(() {
+        _errorMessage = "Saisissez un numéro de reçu avant l'actualisation.";
+        _verificationResult = null;
+      });
+      return;
+    }
+
+    await _verifyReceipt(code);
   }
 
   Future<void> _verifyReceipt(String input) async {
@@ -104,23 +264,80 @@ class _ReceiptVerificationPageState
       final response =
           await Supabase.instance.client.functions.invoke(
         'get-receipt',
-        body: {'receipt_number': code},
+        body: {
+          'receipt_number': code,
+        },
       );
 
       final data = _asMap(response.data);
 
       if (data == null) {
+        debugPrint(
+          'GET-RECEIPT : réponse reçue : ${response.data}',
+        );
+
         throw const FormatException(
           "Le serveur a renvoyé une réponse inexploitable.",
         );
       }
 
-      final resultCode = data['result']?.toString() ?? '';
-      final message = data['message']?.toString() ??
-          "Aucun message fourni par le serveur.";
+      debugPrint('========== RÉPONSE GET-RECEIPT ==========');
+      debugPrint('DONNÉES : $data');
+      debugPrint('========================================');
+
+      final resultCode =
+          data['result']?.toString().trim() ?? '';
+
+      final message = _extractMessageFromValue(data) ??
+          "Aucun message d'erreur fourni par le serveur.";
+
+      final normalizedResultCode =
+          resultCode.toLowerCase();
+
+      if (_isAccessDeniedResult(normalizedResultCode)) {
+        if (!mounted) return;
+
+        setState(() {
+          _errorMessage = message !=
+                  "Aucun message d'erreur fourni par le serveur."
+              ? message
+              : _assistantAccessDeniedMessage;
+
+          _verificationResult = null;
+        });
+
+        return;
+      }
+
+      final responseStatus = data['status'] ??
+          data['statusCode'] ??
+          data['http_status'];
+
+      final statusCode = int.tryParse(
+        responseStatus?.toString() ?? '',
+      );
+
+      if (data['success'] == false &&
+          (statusCode == 401 || statusCode == 403)) {
+        if (!mounted) return;
+
+        setState(() {
+          _errorMessage = message !=
+                  "Aucun message d'erreur fourni par le serveur."
+              ? message
+              : statusCode == 403
+                  ? _assistantAccessDeniedMessage
+                  : "Votre session a expiré. Veuillez vous reconnecter.";
+
+          _verificationResult = null;
+        });
+
+        return;
+      }
 
       final isAuthentic =
-          data['success'] == true && resultCode == 'authentic';
+          data['success'] == true &&
+          resultCode == 'authentic';
 
       final receipt = _asMap(data['receipt']);
       final student = _asMap(data['student']);
@@ -167,10 +384,11 @@ class _ReceiptVerificationPageState
         _errorMessage = error.message;
         _verificationResult = null;
       });
-    } catch (error) {
-      if (!mounted) return;
-
+    } catch (error, stackTrace) {
       debugPrint('Erreur de vérification du reçu : $error');
+      debugPrint('StackTrace : $stackTrace');
+
+      if (!mounted) return;
 
       setState(() {
         _errorMessage =
@@ -204,8 +422,28 @@ class _ReceiptVerificationPageState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text("Vérification de reçu"),
         centerTitle: true,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                tooltip: 'Retour à la page précédente',
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () {
+                  Navigator.of(context).maybePop();
+                },
+              )
+            : null,
+        actions: [
+          const HomeButton(),
+          IconButton(
+            tooltip: 'Actualiser la vérification',
+            onPressed:
+                _isLoading ? null : _refreshVerification,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -226,7 +464,7 @@ class _ReceiptVerificationPageState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.verified_user_rounded,
                         size: 42,
                         color: AppColors.primary,
@@ -244,7 +482,7 @@ class _ReceiptVerificationPageState
                             ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         "Saisissez le numéro figurant sur le reçu "
                         "de l'étudiant pour vérifier son authenticité "
                         "auprès du système officiel.",
@@ -258,12 +496,13 @@ class _ReceiptVerificationPageState
                       TextField(
                         controller: _receiptController,
                         enabled: !_isLoading,
-                        textCapitalization: TextCapitalization.characters,
+                        textCapitalization:
+                            TextCapitalization.characters,
                         autocorrect: false,
                         decoration: InputDecoration(
                           labelText: "Numéro de reçu",
                           hintText: "SP-2026-000006",
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.receipt_long_rounded,
                             color: AppColors.primary,
                           ),
@@ -445,7 +684,7 @@ class _ReceiptVerificationPageState
                     Text(
                       result['message']?.toString() ??
                           "Résultat de la vérification.",
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         height: 1.5,
                       ),
@@ -470,7 +709,7 @@ class _ReceiptVerificationPageState
           const Divider(height: 32),
 
           // ÉTUDIANT
-          const Text(
+          Text(
             "Étudiant propriétaire du reçu",
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -493,7 +732,7 @@ class _ReceiptVerificationPageState
                   child: Center(
                     child: Text(
                       _initials(student['full_name']),
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.bold,
                         fontSize: 21,
@@ -509,7 +748,7 @@ class _ReceiptVerificationPageState
                       Text(
                         student['full_name']?.toString() ??
                             "Nom inconnu",
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -518,7 +757,7 @@ class _ReceiptVerificationPageState
                       const SizedBox(height: 4),
                       Text(
                         "Matricule : ${student['matricule'] ?? 'N/A'}",
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.primaryDark,
                           fontWeight: FontWeight.w600,
                         ),
@@ -534,7 +773,7 @@ class _ReceiptVerificationPageState
                                 value != null &&
                                 value.toString().isNotEmpty)
                             .join(' • '),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12,
                         ),
@@ -545,7 +784,7 @@ class _ReceiptVerificationPageState
               ],
             )
           else
-            const Text(
+            Text(
               "Les informations de l'étudiant ne sont pas disponibles.",
               style: TextStyle(color: AppColors.textSecondary),
             ),
@@ -555,13 +794,13 @@ class _ReceiptVerificationPageState
           // SESSION D'EXAMEN
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.event_note_rounded,
                 color: AppColors.primary,
                 size: 23,
               ),
               const SizedBox(width: 9),
-              const Expanded(
+              Expanded(
                 child: Text(
                   "Session d'examen associée",
                   style: TextStyle(
@@ -581,7 +820,7 @@ class _ReceiptVerificationPageState
                     color: AppColors.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Text(
+                  child: Text(
                     "LIÉE AU REÇU",
                     style: TextStyle(
                       color: AppColors.primaryDark,
@@ -609,7 +848,7 @@ class _ReceiptVerificationPageState
                 children: [
                   Text(
                     _displayValue(examSession['session_name']),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.primaryDark,
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -617,23 +856,8 @@ class _ReceiptVerificationPageState
                   ),
                   const SizedBox(height: 12),
                   _buildDetailTile(
-                    "Date de l'examen",
-                    _formatExamDate(examSession['exam_date']),
-                  ),
-                  _buildDetailTile(
-                    "Heure",
-                    _formatTimeRange(
-                      examSession['start_time'],
-                      examSession['end_time'],
-                    ),
-                  ),
-                  _buildDetailTile(
                     "Semestre",
                     _displayValue(examSession['semester']),
-                  ),
-                  _buildDetailTile(
-                    "Promotion de la session",
-                    _displayValue(examSession['promotion']),
                   ),
                 ],
               ),
@@ -645,7 +869,7 @@ class _ReceiptVerificationPageState
                 color: AppColors.error.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
@@ -674,7 +898,7 @@ class _ReceiptVerificationPageState
           const Divider(height: 32),
 
           // DÉTAILS DU REÇU
-          const Text(
+          Text(
             "Détails du paiement",
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -786,46 +1010,6 @@ class _ReceiptVerificationPageState
         '${twoDigits(local.minute)}';
   }
 
-  String _formatExamDate(dynamic value) {
-    if (value == null || value.toString().isEmpty) {
-      return "Non renseignée";
-    }
-
-    final parsed = DateTime.tryParse(value.toString());
-
-    if (parsed == null) return value.toString();
-
-    String twoDigits(int number) =>
-        number.toString().padLeft(2, '0');
-
-    return '${twoDigits(parsed.day)}/'
-        '${twoDigits(parsed.month)}/'
-        '${parsed.year}';
-  }
-
-  String _formatTimeRange(dynamic start, dynamic end) {
-    String formatTime(dynamic value) {
-      if (value == null || value.toString().isEmpty) {
-        return '';
-      }
-
-      final text = value.toString();
-      return text.length >= 5 ? text.substring(0, 5) : text;
-    }
-
-    final startText = formatTime(start);
-    final endText = formatTime(end);
-
-    if (startText.isEmpty && endText.isEmpty) {
-      return "Non renseignée";
-    }
-
-    if (startText.isEmpty) return "Jusqu'à $endText";
-    if (endText.isEmpty) return "À partir de $startText";
-
-    return "$startText – $endText";
-  }
-
   Widget _buildDetailTile(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -836,7 +1020,7 @@ class _ReceiptVerificationPageState
             flex: 4,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 13,
               ),
@@ -848,7 +1032,7 @@ class _ReceiptVerificationPageState
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

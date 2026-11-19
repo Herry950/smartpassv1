@@ -1,3 +1,5 @@
+import 'package:myprojectflut/shared/widgets/home_button.dart';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -18,6 +20,7 @@ class _AssistantManagementPageState
 
   List<Map<String, dynamic>> _assistants = [];
   bool _isLoading = true;
+  bool _isTestingAdmin = false;
 
   @override
   void initState() {
@@ -54,6 +57,116 @@ class _AssistantManagementPageState
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // Activer ou désactiver un assistant de la faculté.
+  // RLS : seul l'administrateur de la faculté de l'assistant peut le modifier.
+  // La désactivation bloque les nouvelles validations en espèces, mais
+  // n'empêche pas le règlement des remises déjà validées.
+  Future<void> _toggleAssistant(Map<String, dynamic> assistant) async {
+    final isActive = assistant['is_active'] == true;
+    final name = assistant['full_name'] ?? 'cet assistant';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(isActive ? 'Désactiver l’assistant' : 'Activer l’assistant'),
+        content: Text(
+          isActive
+              ? '$name ne pourra plus valider de nouveaux paiements en '
+                  'espèces ni effectuer de contrôles. Ses affectations, son '
+                  'historique et ses remises en attente sont conservés : '
+                  'vous pourrez toujours régler ses remises.'
+              : '$name pourra de nouveau effectuer les contrôles et valider '
+                  'les paiements en espèces de ses sessions affectées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(isActive ? 'Désactiver' : 'Activer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // RPC sécurisée : contrôle de la faculté, refus du central et des
+      // assistants, refus d'activer une invitation non acceptée.
+      await _supabase.rpc(
+        'set_assistant_active',
+        params: {
+          'p_assistant_id': assistant['id'],
+          'p_is_active': !isActive,
+        },
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text(
+            isActive ? 'Assistant désactivé.' : 'Assistant activé.',
+          ),
+        ),
+      );
+
+      await _loadAssistants();
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text(
+            error is PostgrestException
+                ? error.message
+                : error.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
+    }
+  }
+
+  // Vérifier les droits de l'administrateur sans créer de compte.
+  Future<void> _testAdminAuthorization() async {
+    if (_isTestingAdmin) return;
+
+    setState(() => _isTestingAdmin = true);
+
+    try {
+      await AssistantManagementService().testAdminAuthorization();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text(
+            'Vérification réussie : les droits administrateur sont confirmés.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('Échec de la vérification : $error'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isTestingAdmin = false);
       }
     }
   }
@@ -107,11 +220,13 @@ class _AssistantManagementPageState
                           ),
                           validator: (value) {
                             final email = value?.trim() ?? '';
+
                             if (!RegExp(
                               r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
                             ).hasMatch(email)) {
                               return 'Adresse e-mail invalide.';
                             }
+
                             return null;
                           },
                         ),
@@ -133,7 +248,7 @@ class _AssistantManagementPageState
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'Un e-mail d’invitation sera envoyé à '
                           'l’adresse indiquée afin que l’assistant '
                           'puisse définir son mot de passe.',
@@ -185,7 +300,7 @@ class _AssistantManagementPageState
                             ScaffoldMessenger.of(context)
                                 .showSnackBar(
                               const SnackBar(
-                                backgroundColor: Colors.green,
+                                backgroundColor: AppColors.success,
                                 content: Text(
                                   'Invitation envoyée et profil créé.',
                                 ),
@@ -246,6 +361,21 @@ class _AssistantManagementPageState
         title: const Text('Gestion des assistants'),
         backgroundColor: AppColors.surface,
         actions: [
+          const HomeButton(),
+          IconButton(
+            tooltip: 'Tester les droits administrateur',
+            onPressed:
+                _isTestingAdmin ? null : _testAdminAuthorization,
+            icon: _isTestingAdmin
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.verified_user_outlined),
+          ),
           IconButton(
             tooltip: 'Actualiser',
             onPressed: _loadAssistants,
@@ -268,8 +398,8 @@ class _AssistantManagementPageState
                   ? ListView(
                       physics:
                           const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 140),
+                      children: [
+                        const SizedBox(height: 140),
                         Icon(
                           Icons.support_agent_rounded,
                           size: 58,
@@ -285,7 +415,10 @@ class _AssistantManagementPageState
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(
-                        16, 20, 16, 100,
+                        16,
+                        20,
+                        16,
+                        100,
                       ),
                       itemCount: _assistants.length,
                       separatorBuilder: (_, _) =>
@@ -299,10 +432,20 @@ class _AssistantManagementPageState
                           child: ListTile(
                             contentPadding:
                                 const EdgeInsets.all(12),
+                            trailing: Tooltip(
+                              message: isActive
+                                  ? 'Désactiver le compte'
+                                  : 'Activer le compte',
+                              child: Switch(
+                                value: isActive,
+                                onChanged: (_) =>
+                                    _toggleAssistant(assistant),
+                              ),
+                            ),
                             leading: CircleAvatar(
                               backgroundColor: AppColors.primary
                                   .withValues(alpha: 0.12),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.support_agent_rounded,
                                 color: AppColors.primary,
                               ),

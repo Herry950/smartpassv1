@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class StatusBadges extends StatelessWidget {
@@ -21,8 +22,8 @@ class StatusBadges extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: ok
-            ? Colors.green.withValues(alpha: .15)
-            : Colors.red.withValues(alpha: .15),
+            ? AppColors.success.withValues(alpha: .15)
+            : AppColors.error.withValues(alpha: .15),
         borderRadius: BorderRadius.circular(30),
       ),
       child: Row(
@@ -34,7 +35,7 @@ class StatusBadges extends StatelessWidget {
                 : Icons.cancel,
             size: 18,
             color:
-                ok ? Colors.green : Colors.red,
+                ok ? AppColors.success : AppColors.error,
           ),
 
           const SizedBox(width: 8),
@@ -44,7 +45,7 @@ class StatusBadges extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color:
-                  ok ? Colors.green : Colors.red,
+                  ok ? AppColors.success : AppColors.error,
             ),
           ),
         ],

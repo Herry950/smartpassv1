@@ -16,7 +16,7 @@ class SmartLogo extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
             AppColors.primaryDark,
             AppColors.primary,

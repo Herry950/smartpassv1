@@ -1,4 +1,8 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+
+import 'role_about_dialog.dart';
+import 'theme_mode_selector.dart';
 
 class AppSettingsCard extends StatelessWidget {
   final VoidCallback? onChangePassword;
@@ -29,12 +33,14 @@ class AppSettingsCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 20),
+            const ThemeModeSelector(),
+            const SizedBox(height: 8),
             _settingTile(
               context,
               icon: Icons.lock_outline_rounded,
               title: "Modifier le mot de passe",
               subtitle: "Sécurisez votre compte",
-              color: Colors.blue,
+              color: AppColors.primary,
               onTap: onChangePassword ?? () {},
             ),
             _settingTile(
@@ -42,7 +48,7 @@ class AppSettingsCard extends StatelessWidget {
               icon: Icons.security_rounded,
               title: "Confidentialité",
               subtitle: "Protection des données",
-              color: Colors.purple,
+              color: AppColors.primary,
               onTap: onPrivacy ?? () {
                 showDialog(
                   context: context,
@@ -64,15 +70,8 @@ class AppSettingsCard extends StatelessWidget {
               icon: Icons.info_outline_rounded,
               title: "À propos de SmartPass",
               subtitle: "Version 1.0.0",
-              color: Colors.teal,
-              onTap: onAbout ?? () {
-                showAboutDialog(
-                  context: context,
-                  applicationName: 'SmartPass ULPGL',
-                  applicationVersion: '1.0.0',
-                  applicationLegalese: 'Système d\'accès et de gestion des examens académiques.',
-                );
-              },
+              color: AppColors.primary,
+              onTap: onAbout ?? () => showRoleAboutDialog(context),
             ),
           ],
         ),

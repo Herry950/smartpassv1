@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -46,18 +47,30 @@ try {
   print("CurrentUser ID : ${AuthService.currentUser?.id}");
   print("CurrentUser Email : ${AuthService.currentUser?.email}");
 
-  final role = await AuthService.getUserRole();
+  AuthService.clearRoleCache();
+  final role = await AuthService.getCachedUserRole();
 
   print("Rôle détecté : $role");
 
   if (!mounted) return;
 
-  if (role == "student") {
-    context.go("/student");
-  } else if (role == "assistant") {
-    context.go("/assistant");
-  } else if (role == "admin") {
-    context.go("/admin");
+  final home = AuthService.homeRouteForRole(role);
+
+  if (home != null) {
+    context.go(home);
+  } else if (role == AuthService.roleInactiveAdmin) {
+    await AuthService.signOut();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Votre compte administrateur est désactivé. "
+          "Veuillez contacter l'administration centrale.",
+        ),
+      ),
+    );
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -103,10 +116,10 @@ padding: const EdgeInsets.all(30),
 child: Column(
 mainAxisSize: MainAxisSize.min,
 children: [
-const Icon(
+Icon(
 Icons.school_rounded,
 size: 70,
-color: Colors.green,
+color: AppColors.primary,
 ),
 const SizedBox(height: 20),
 Text(

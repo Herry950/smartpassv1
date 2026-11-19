@@ -10,9 +10,15 @@ import 'status_badges.dart';
 class StudentDashboardHeader extends StatelessWidget {
   final Student student;
 
+  /// Prochain examen programmé (null si aucun).
+  final DateTime? nextExamDate;
+  final String? nextExamLabel;
+
   const StudentDashboardHeader({
     super.key,
     required this.student,
+    this.nextExamDate,
+    this.nextExamLabel,
   });
 
   @override
@@ -107,7 +113,7 @@ class StudentDashboardHeader extends StatelessWidget {
                         )
                       : null,
                   child: !hasPhoto
-                      ? const Icon(
+                      ? Icon(
                           Icons.person,
                           size: 42,
                           color: AppColors.primary,
@@ -125,7 +131,8 @@ class StudentDashboardHeader extends StatelessWidget {
           const SizedBox(height: 16),
 
           ExamCountdownCard(
-            examDate: DateTime(2026, 8, 17),
+            examDate: nextExamDate,
+            courseLabel: nextExamLabel,
           ),
 
           const SizedBox(height: 16),

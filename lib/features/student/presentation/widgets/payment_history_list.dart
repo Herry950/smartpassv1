@@ -37,6 +37,20 @@ class PaymentHistoryList extends StatelessWidget {
             payment['receipt_signature'] ??
             "";
 
+        // Informations de la session liée à ce paiement.
+        final sessionData = payment['exam_sessions'];
+
+        final examSession =
+            sessionData is Map
+                ? Map<String, dynamic>.from(sessionData)
+                : <String, dynamic>{};
+
+        final sessionName =
+            (examSession['session_name'] ?? 'N/A').toString();
+
+        final semester =
+            (examSession['semester'] ?? 'N/A').toString();
+
         return Padding(
           padding: const EdgeInsets.only(
             bottom: 14,
@@ -67,6 +81,9 @@ class PaymentHistoryList extends StatelessWidget {
             faculty: student.faculty,
             department: student.department,
             promotion: student.promotion,
+
+            sessionName: sessionName,
+            semester: semester,
 
             provider:
                 payment['provider'] ??

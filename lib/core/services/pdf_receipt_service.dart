@@ -12,7 +12,6 @@ import 'receipt/pdf_payment_info.dart';
 import 'receipt/pdf_qrcode.dart';
 //import 'receipt/pdf_stamp.dart'; je rétire le cachet du récu
 import 'receipt/pdf_student_info.dart';
-import 'receipt/pdf_styles.dart';
 import 'receipt/pdf_validation.dart';
 
 class PdfReceiptService {
@@ -39,7 +38,7 @@ class PdfReceiptService {
           .asUint8List(),
     );
 
-   //final officialStamp = await buildOfficialStamp();
+    //final officialStamp = await buildOfficialStamp();
 
     pdf.addPage(
       pw.MultiPage(
@@ -61,6 +60,51 @@ class PdfReceiptService {
             faculty: receipt.faculty,
             department: receipt.department,
             promotion: receipt.promotion,
+          ),
+
+          pw.SizedBox(height: 20),
+
+          // Informations de la session d'examen
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(14),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(
+                color: PdfColors.grey600,
+              ),
+              borderRadius: pw.BorderRadius.circular(6),
+            ),
+            child: pw.Column(
+              crossAxisAlignment:
+                  pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  "SESSION D'EXAMEN",
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+
+                pw.SizedBox(height: 10),
+
+                pw.Text(
+                  "Session : ${receipt.sessionName}",
+                  style: const pw.TextStyle(
+                    fontSize: 11,
+                  ),
+                ),
+
+                pw.SizedBox(height: 5),
+
+                pw.Text(
+                  "Semestre : ${receipt.semester}",
+                  style: const pw.TextStyle(
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
 
           pw.SizedBox(height: 24),

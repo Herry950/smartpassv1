@@ -3,7 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:myprojectflut/app/theme/app_colors.dart';
 
 class DashboardStatsGrid extends StatelessWidget {
-  const DashboardStatsGrid({super.key});
+  final bool examAuthorized;
+  final bool paymentValidated;
+  final int upcomingExamCount;
+  final int unreadNotificationCount;
+
+  const DashboardStatsGrid({
+    super.key,
+    required this.examAuthorized,
+    required this.paymentValidated,
+    required this.upcomingExamCount,
+    required this.unreadNotificationCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -14,30 +25,32 @@ class DashboardStatsGrid extends StatelessWidget {
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
       childAspectRatio: 1.25,
-      children: const [
+      children: [
         _StatCard(
-          icon: Icons.verified_user_rounded,
+          icon: examAuthorized
+              ? Icons.verified_user_rounded
+              : Icons.gpp_maybe_rounded,
           title: "Accès",
-          value: "Autorisé",
-          color: Colors.green,
+          value: examAuthorized ? "Autorisé" : "Non autorisé",
+          color: examAuthorized ? AppColors.success : AppColors.textSecondary,
         ),
         _StatCard(
           icon: Icons.account_balance_wallet_rounded,
           title: "Paiement",
-          value: "Validé",
-          color: Colors.blue,
+          value: paymentValidated ? "Validé" : "Non validé",
+          color: paymentValidated ? AppColors.success : AppColors.info,
         ),
         _StatCard(
           icon: Icons.event_available_rounded,
-          title: "Examens",
-          value: "4",
-          color: Colors.orange,
+          title: "Examens à venir",
+          value: "$upcomingExamCount",
+          color: AppColors.info,
         ),
         _StatCard(
           icon: Icons.notifications_active_rounded,
-          title: "Notifications",
-          value: "2",
-          color: Colors.purple,
+          title: "Notifications non lues",
+          value: "$unreadNotificationCount",
+          color: AppColors.primaryLight,
         ),
       ],
     );
@@ -89,8 +102,9 @@ class _StatCard extends StatelessWidget {
 
           Text(
             value,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -99,8 +113,8 @@ class _StatCard extends StatelessWidget {
 
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.grey,
+            style: TextStyle(
+              color: AppColors.textSecondary,
             ),
           ),
         ],

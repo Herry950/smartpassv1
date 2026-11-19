@@ -55,3 +55,9 @@ node_modules/
 # Local Supabase environment files
 supabase/.env
 supabase/.env.*
+
+# SDK Flutter installé par le build Vercel
+/flutter/
+
+# Sauvegardes locales de la base (données personnelles)
+supabase/backups/

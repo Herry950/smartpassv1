@@ -10,9 +10,13 @@ import 'student_card_header.dart';
 class StudentIdentityCard extends StatelessWidget {
   final Student student;
 
+  /// Badge d'autorisation (masqué côté administration centrale).
+  final bool showAccessStatus;
+
   const StudentIdentityCard({
     super.key,
     required this.student,
+    this.showAccessStatus = true,
   });
 
   @override
@@ -165,6 +169,7 @@ class StudentIdentityCard extends StatelessWidget {
                   children: [
                     StudentCardHeader(
                       student: student,
+                      showAccessStatus: showAccessStatus,
                     ),
 
                     const SizedBox(height: 30),

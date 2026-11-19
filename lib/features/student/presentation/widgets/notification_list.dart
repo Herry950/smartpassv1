@@ -26,6 +26,12 @@ class NotificationList extends StatelessWidget {
       case "exam":
         return Icons.school_rounded;
 
+      case "session":
+        return Icons.event_available_rounded;
+
+      case "reconciliation":
+        return Icons.currency_exchange_rounded;
+
       default:
         return Icons.notifications_active_rounded;
     }
@@ -43,6 +49,12 @@ class NotificationList extends StatelessWidget {
         return AppColors.primary;
 
       case "exam":
+        return AppColors.info;
+
+      case "session":
+        return AppColors.primary;
+
+      case "reconciliation":
         return AppColors.warning;
 
       default:

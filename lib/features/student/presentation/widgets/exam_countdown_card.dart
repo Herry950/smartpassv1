@@ -1,35 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+/// Compte à rebours vers le prochain examen programmé de l'étudiant.
+/// La date provient des examens visibles via RLS (aucune date figée).
 class ExamCountdownCard extends StatelessWidget {
-  final DateTime examDate;
+  /// Date du prochain examen, ou null si aucun examen n'est programmé.
+  final DateTime? examDate;
+
+  /// Libellé du cours concerné (facultatif).
+  final String? courseLabel;
 
   const ExamCountdownCard({
     super.key,
     required this.examDate,
+    this.courseLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-
-    final days = examDate.difference(now).inDays;
+    final date = examDate;
 
     String title;
     Color color;
 
-    if (days > 1) {
-      title = "Début dans : $days jours";
-      color = const Color(0xFF8BC34A);
-    } else if (days == 1) {
-      title = "Début demain";
-      color = Colors.orange;
-    } else if (days == 0) {
-      title = "Examens aujourd'hui";
-      color = Colors.redAccent;
+    if (date == null) {
+      title = 'Aucun examen programmé';
+      color = Colors.white70;
     } else {
-      title = "Session terminée";
-      color = Colors.grey;
+      final today = DateUtils.dateOnly(DateTime.now());
+      final days = DateUtils.dateOnly(date).difference(today).inDays;
+
+      if (days > 1) {
+        title = 'Début dans : $days jours';
+        color = const Color(0xFF6EE7B7);
+      } else if (days == 1) {
+        title = 'Début demain';
+        color = const Color(0xFFFCD34D);
+      } else {
+        title = 'Examen aujourd’hui';
+        color = const Color(0xFFFCD34D);
+      }
     }
 
     return Container(
@@ -49,24 +59,20 @@ class ExamCountdownCard extends StatelessWidget {
               color: color,
             ),
           ),
-
           const SizedBox(width: 14),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "Prochaine session",
+                  'Prochain examen',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                   ),
                 ),
-
                 const SizedBox(height: 4),
-
                 Text(
                   title,
                   style: TextStyle(
@@ -75,20 +81,21 @@ class ExamCountdownCard extends StatelessWidget {
                     fontSize: 18,
                   ),
                 ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  DateFormat(
-                    "dd MMMM yyyy",
-                    "fr_FR",
-                  ).format(examDate),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                if (date != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      DateFormat('dd MMMM yyyy', 'fr_FR').format(date),
+                      if (courseLabel != null && courseLabel!.isNotEmpty)
+                        courseLabel!,
+                    ].join(' • '),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

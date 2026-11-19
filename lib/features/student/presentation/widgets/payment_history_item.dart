@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import 'package:myprojectflut/core/models/payment_receipt.dart';
@@ -14,6 +15,9 @@ class PaymentHistoryItem extends StatelessWidget {
   final String faculty;
   final String department;
   final String promotion;
+
+  final String sessionName;
+  final String semester;
 
   final String provider;
   final String transaction;
@@ -35,6 +39,8 @@ class PaymentHistoryItem extends StatelessWidget {
     required this.faculty,
     required this.department,
     required this.promotion,
+    this.sessionName = 'N/A',
+    this.semester = 'N/A',
     required this.provider,
     required this.transaction,
     required this.receiptNumber,
@@ -49,7 +55,7 @@ class PaymentHistoryItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
@@ -64,13 +70,13 @@ class PaymentHistoryItem extends StatelessWidget {
           CircleAvatar(
             radius: 24,
             backgroundColor: success
-                ? Colors.green.withValues(alpha: .12)
-                : Colors.red.withValues(alpha: .12),
+                ? AppColors.success.withValues(alpha: .12)
+                : AppColors.error.withValues(alpha: .12),
             child: Icon(
               success
                   ? Icons.check_circle_rounded
                   : Icons.cancel_rounded,
-              color: success ? Colors.green : Colors.red,
+              color: success ? AppColors.success : AppColors.error,
             ),
           ),
 
@@ -92,8 +98,8 @@ class PaymentHistoryItem extends StatelessWidget {
 
                 Text(
                   method,
-                  style: const TextStyle(
-                    color: Colors.grey,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
                   ),
                 ),
 
@@ -101,8 +107,8 @@ class PaymentHistoryItem extends StatelessWidget {
 
                 Text(
                   date,
-                  style: const TextStyle(
-                    color: Colors.grey,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -118,7 +124,7 @@ class PaymentHistoryItem extends StatelessWidget {
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 17,
-                  color: Colors.green,
+                  color: AppColors.success,
                 ),
               ),
 
@@ -128,7 +134,7 @@ class PaymentHistoryItem extends StatelessWidget {
                 tooltip: "Télécharger le reçu",
                 icon: const Icon(
                   Icons.picture_as_pdf_rounded,
-                  color: Colors.red,
+                  color: AppColors.error,
                 ),
                 onPressed: () async {
                   final receipt = PaymentReceipt(
@@ -139,6 +145,8 @@ class PaymentHistoryItem extends StatelessWidget {
                     faculty: faculty,
                     department: department,
                     promotion: promotion,
+                    sessionName: sessionName,
+                    semester: semester,
                     amount: amount,
                     currency: currency,
                     method: method,

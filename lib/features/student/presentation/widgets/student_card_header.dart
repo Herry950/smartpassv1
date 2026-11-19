@@ -6,9 +6,14 @@ import 'package:myprojectflut/core/models/student.dart';
 class StudentCardHeader extends StatelessWidget {
   final Student student;
 
+  /// Affiche le badge AUTORISÉ / REFUSÉ (dépend des paiements).
+  /// Masqué pour l'administration centrale, sans accès financier.
+  final bool showAccessStatus;
+
   const StudentCardHeader({
     super.key,
     required this.student,
+    this.showAccessStatus = true,
   });
 
   @override
@@ -72,8 +77,9 @@ class StudentCardHeader extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(width: 12),
+        if (showAccessStatus) const SizedBox(width: 12),
 
+        if (showAccessStatus)
         Container(
           padding: const EdgeInsets.symmetric(
             horizontal: 14,

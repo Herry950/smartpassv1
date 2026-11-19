@@ -27,6 +27,7 @@ class PaymentRepository {
     required String examSessionId,
     required String email,
     required String paymentMethod,
+    String? redirectUrl,
   }) async {
     print("========== PaymentRepository ==========");
     print("ExamSessionId : $examSessionId");
@@ -38,6 +39,7 @@ class PaymentRepository {
       examSessionId: examSessionId,
       email: email,
       paymentMethod: paymentMethod,
+      redirectUrl: redirectUrl,
     );
 
     print("CheckoutUrl : $checkoutUrl");

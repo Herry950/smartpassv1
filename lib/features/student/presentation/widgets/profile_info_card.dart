@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import 'package:myprojectflut/core/models/student.dart';
@@ -82,10 +83,10 @@ class ProfileInfoCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: Colors.green.withValues(alpha: .12),
+            backgroundColor: AppColors.success.withValues(alpha: .12),
             child: Icon(
               icon,
-              color: Colors.green,
+              color: AppColors.success,
               size: 20,
             ),
           ),
@@ -98,8 +99,8 @@ class ProfileInfoCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.grey,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
                     fontSize: 13,
                   ),
                 ),

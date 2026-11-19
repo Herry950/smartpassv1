@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -248,9 +249,9 @@ class _StudentRegisterPageState extends State<StudentRegisterPage> {
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) => AlertDialog(
-          icon: const Icon(
+          icon: Icon(
             Icons.mark_email_read_outlined,
-            color: Color(0xFF556B2F),
+            color: AppColors.primary,
             size: 42,
           ),
           title: const Text('Inscription enregistrée'),
@@ -292,7 +293,7 @@ class _StudentRegisterPageState extends State<StudentRegisterPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: error ? Colors.red.shade700 : null,
+        backgroundColor: error ? AppColors.error : null,
       ),
     );
   }
@@ -360,10 +361,10 @@ class _StudentRegisterPageState extends State<StudentRegisterPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(
+          Icon(
             Icons.school_rounded,
             size: 58,
-            color: Color(0xFF556B2F),
+            color: AppColors.primary,
           ),
           const SizedBox(height: 12),
           Text(

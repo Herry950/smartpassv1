@@ -1,151 +1,167 @@
 class PaymentReceipt {
-final String paymentId;
+  final String paymentId;
 
-final String receiptNumber;
+  final String receiptNumber;
 
-final String student;
-final String matricule;
+  final String student;
+  final String matricule;
 
-final String faculty;
-final String department;
-final String promotion;
+  final String faculty;
+  final String department;
+  final String promotion;
 
-final String amount;
-final String currency;
+  final String sessionName;
+  final String semester;
 
-final String method;
-final String provider;
+  final String amount;
+  final String currency;
 
-final String transaction;
+  final String method;
+  final String provider;
 
-final String date;
+  final String transaction;
 
-final bool validated;
+  final String date;
 
-final String signature;
+  final bool validated;
 
-const PaymentReceipt({
-required this.paymentId,
-required this.receiptNumber,
-required this.student,
-required this.matricule,
-required this.faculty,
-required this.department,
-required this.promotion,
-required this.amount,
-required this.currency,
-required this.method,
-required this.provider,
-required this.transaction,
-required this.date,
-required this.validated,
-required this.signature,
-});
+  final String signature;
 
-factory PaymentReceipt.fromMap(
-Map<String, dynamic> map,
-) {
-return PaymentReceipt(
-paymentId: (
-map['payment_id'] ??
-map['id'] ??
-''
-).toString(),
+  const PaymentReceipt({
+    required this.paymentId,
+    required this.receiptNumber,
+    required this.student,
+    required this.matricule,
+    required this.faculty,
+    required this.department,
+    required this.promotion,
+    this.sessionName = 'N/A',
+    this.semester = 'N/A',
+    required this.amount,
+    required this.currency,
+    required this.method,
+    required this.provider,
+    required this.transaction,
+    required this.date,
+    required this.validated,
+    required this.signature,
+  });
 
-  receiptNumber: (
-    map['receipt_number'] ??
-    'N/A'
-  ).toString(),
+  factory PaymentReceipt.fromMap(
+    Map<String, dynamic> map,
+  ) {
+    return PaymentReceipt(
+      paymentId: (
+        map['payment_id'] ??
+        map['id'] ??
+        ''
+      ).toString(),
 
-  student: (
-    map['student'] ??
-    'N/A'
-  ).toString(),
+      receiptNumber: (
+        map['receipt_number'] ??
+        'N/A'
+      ).toString(),
 
-  matricule: (
-    map['matricule'] ??
-    'N/A'
-  ).toString(),
+      student: (
+        map['student'] ??
+        'N/A'
+      ).toString(),
 
-  faculty: (
-    map['faculty'] ??
-    'N/A'
-  ).toString(),
+      matricule: (
+        map['matricule'] ??
+        'N/A'
+      ).toString(),
 
-  department: (
-    map['department'] ??
-    'N/A'
-  ).toString(),
+      faculty: (
+        map['faculty'] ??
+        'N/A'
+      ).toString(),
 
-  promotion: (
-    map['promotion'] ??
-    'N/A'
-  ).toString(),
+      department: (
+        map['department'] ??
+        'N/A'
+      ).toString(),
 
-  amount: (
-    map['amount'] ??
-    '0'
-  ).toString(),
+      promotion: (
+        map['promotion'] ??
+        'N/A'
+      ).toString(),
 
-  currency: (
-    map['currency'] ??
-    'USD'
-  ).toString(),
+      sessionName: (
+        map['session_name'] ??
+        'N/A'
+      ).toString(),
 
-  method: (
-    map['method'] ??
-    'N/A'
-  ).toString(),
+      semester: (
+        map['semester'] ??
+        'N/A'
+      ).toString(),
 
-  provider: (
-    map['provider'] ??
-    'N/A'
-  ).toString(),
+      amount: (
+        map['amount'] ??
+        '0'
+      ).toString(),
 
-  transaction: (
-    map['transaction'] ??
-    map['flutterwave_transaction_id'] ??
-    ''
-  ).toString(),
+      currency: (
+        map['currency'] ??
+        'USD'
+      ).toString(),
 
-  date: (
-    map['date'] ??
-    map['paid_at'] ??
-    map['created_at'] ??
-    ''
-  ).toString(),
+      method: (
+        map['method'] ??
+        'N/A'
+      ).toString(),
 
-  validated:
-      map['validated'] == true ||
-      map['status']?.toString().toLowerCase() ==
-          'validated',
+      provider: (
+        map['provider'] ??
+        'N/A'
+      ).toString(),
 
-  signature: (
-    map['signature'] ??
-    map['receipt_signature'] ??
-    ''
-  ).toString(),
-);
+      transaction: (
+        map['transaction'] ??
+        map['flutterwave_transaction_id'] ??
+        ''
+      ).toString(),
 
-}
+      date: (
+        map['date'] ??
+        map['paid_at'] ??
+        map['created_at'] ??
+        ''
+      ).toString(),
 
-Map<String, dynamic> toMap() {
-return {
-'payment_id': paymentId,
-'receipt_number': receiptNumber,
-'student': student,
-'matricule': matricule,
-'faculty': faculty,
-'department': department,
-'promotion': promotion,
-'amount': amount,
-'currency': currency,
-'method': method,
-'provider': provider,
-'transaction': transaction,
-'date': date,
-'validated': validated,
-'signature': signature,
-};
-}
+      validated:
+          map['validated'] == true ||
+          map['status']?.toString().toLowerCase() ==
+              'validated',
+
+      signature: (
+        map['signature'] ??
+        map['receipt_signature'] ??
+        ''
+      ).toString(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'payment_id': paymentId,
+      'receipt_number': receiptNumber,
+      'student': student,
+      'matricule': matricule,
+      'faculty': faculty,
+      'department': department,
+      'promotion': promotion,
+      'session_name': sessionName,
+      'semester': semester,
+      'amount': amount,
+      'currency': currency,
+      'method': method,
+      'provider': provider,
+      'transaction': transaction,
+      'date': date,
+      'validated': validated,
+      'signature': signature,
+    };
+  }
 }

@@ -1,5 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+
 import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:myprojectflut/core/services/auth_service.dart';
 import 'package:myprojectflut/shared/widgets/app_logout_card.dart';
@@ -8,6 +11,7 @@ import 'package:myprojectflut/shared/widgets/change_password_dialog.dart';
 
 import '../widgets/assistant_header.dart';
 import 'matricule_search_page.dart';
+import 'qr_scan_page.dart';
 import 'receipt_verification_page.dart';
 import 'cash_payment_validation_page.dart';
 
@@ -19,19 +23,33 @@ class AssistantDashboardPage extends StatefulWidget {
       _AssistantDashboardPageState();
 }
 
-class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
+class _AssistantDashboardPageState
+    extends State<AssistantDashboardPage> {
   bool _showProfile = false;
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('Session Supabase active : ${AuthService.hasActiveSession()}');
+    debugPrint(
+      'Session Supabase active : ${AuthService.hasActiveSession()}',
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Espace Assistant"),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.primary,
+          ),
+          tooltip: 'Retour à la connexion',
+          onPressed: () {
+            context.go('/login');
+          },
+        ),
+        title: const Text('Espace Assistant'),
         centerTitle: true,
         actions: [
+          // ACCÈS AU PROFIL OU RETOUR AU DASHBOARD
           IconButton(
             icon: Icon(
               _showProfile
@@ -39,25 +57,31 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
                   : Icons.person_outline_rounded,
               color: AppColors.primary,
             ),
-            tooltip: _showProfile ? "Tableau de bord" : "Mon Profil",
+            tooltip: _showProfile
+                ? 'Tableau de bord'
+                : 'Mon Profil',
             onPressed: () {
-              setState(() => _showProfile = !_showProfile);
+              setState(() {
+                _showProfile = !_showProfile;
+              });
             },
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 24,
+          vertical: 20,
+        ),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1300),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. EN-TÊTE ASSISTANT
-                const AssistantHeader(
-                  assistantName: "Jean Assistant",
-                )
+                // EN-TÊTE ASSISTANT DYNAMIQUE
+                const AssistantHeader()
                     .animate()
                     .fadeIn()
                     .slideY(begin: .1),
@@ -65,31 +89,42 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
                 const SizedBox(height: 24),
 
                 if (_showProfile) ...[
-                  // --- SECTION PROFIL & PARAMÈTRES ---
+                  // SECTION PROFIL ET PARAMÈTRES
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        "Mon Profil & Paramètres",
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        'Mon Profil & Paramètres',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
                             ),
                       ),
                       TextButton.icon(
-                        onPressed: () => setState(() => _showProfile = false),
-                        icon: const Icon(Icons.arrow_back_rounded,
-                            color: AppColors.primary),
-                        label: const Text(
-                          "Retour",
-                          style: TextStyle(color: AppColors.primary),
+                        onPressed: () {
+                          setState(() => _showProfile = false);
+                        },
+                        icon: Icon(
+                          Icons.arrow_back_rounded,
+                          color: AppColors.primary,
+                        ),
+                        label: Text(
+                          'Retour',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   AppSettingsCard(
-                    onChangePassword: () => showChangePasswordDialog(context),
+                    onChangePassword: () =>
+                        showChangePasswordDialog(context),
                   )
                       .animate()
                       .fadeIn()
@@ -100,13 +135,17 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
                       .fadeIn(delay: 100.ms)
                       .slideY(begin: .1),
                 ] else ...[
-                  // --- SECTION TABLEAU DE BORD ---
+                  // TABLEAU DE BORD ASSISTANT
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        "Mode de vérification",
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        'Mode de vérification',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
                             ),
@@ -115,7 +154,9 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           side: BorderSide(
-                            color: AppColors.primary.withValues(alpha: 0.5),
+                            color: AppColors.primary.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -124,17 +165,22 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
                         onPressed: () {
                           setState(() => _showProfile = true);
                         },
-                        icon: const Icon(Icons.person_rounded, size: 18),
-                        label: const Text("Mon Profil"),
+                        icon: const Icon(
+                          Icons.person_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('Mon Profil'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
 
-                  // 4 Boutons de modes de vérification
+                  // MODES DE VÉRIFICATION ET REMISES
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final isMobile = constraints.maxWidth < 600;
+                      final isMobile =
+                          constraints.maxWidth < 600;
+
                       final double buttonWidth = isMobile
                           ? (constraints.maxWidth - 12) / 2
                           : 165;
@@ -146,47 +192,74 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
                           _buildActionButton(
                             context,
                             icon: Icons.qr_code_scanner_rounded,
-                            title: "Scanner QR Code",
+                            title: 'Scanner QR Code',
                             width: buttonWidth,
                             color: AppColors.primary,
                             onTap: () {
-                              // TODO: Naviguer vers la page du Scanner QR Code
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const QrScanPage(),
+                                ),
+                              );
                             },
                           ),
                           _buildActionButton(
                             context,
                             icon: Icons.badge_outlined,
-                            title: "Par Matricule",
+                            title: 'Par Matricule',
                             width: buttonWidth,
                             color: AppColors.info,
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (context) => const MatriculeSearchPage(),
-                              ));
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const MatriculeSearchPage(),
+                                ),
+                              );
                             },
                           ),
                           _buildActionButton(
                             context,
                             icon: Icons.receipt_long_rounded,
-                            title: "Vérifier Reçu",
+                            title: 'Vérifier Reçu',
                             width: buttonWidth,
                             color: AppColors.primaryLight,
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (context) => const ReceiptVerificationPage(),
-                              ));
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ReceiptVerificationPage(),
+                                ),
+                              );
                             },
                           ),
                           _buildActionButton(
                             context,
                             icon: Icons.how_to_reg_rounded,
-                            title: "Validation Manuelle",
+                            title: 'Validation Manuelle',
                             width: buttonWidth,
                             color: AppColors.success,
                             onTap: () {
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (context) => const CashPaymentValidationPage(),
-                              ));
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const CashPaymentValidationPage(),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildActionButton(
+                            context,
+                            icon: Icons.account_balance_wallet_outlined,
+                            title: 'Mes remises',
+                            width: buttonWidth,
+                            color: AppColors.info,
+                            onTap: () {
+                              context.push('/assistant/remittances');
                             },
                           ),
                         ],
@@ -205,7 +278,7 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
     );
   }
 
-  // Widget helper pour les boutons d'action rapide
+  // BOUTONS D'ACTION RAPIDE
   Widget _buildActionButton(
     BuildContext context, {
     required IconData icon,
@@ -220,7 +293,10 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: width,
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+        padding: const EdgeInsets.symmetric(
+          vertical: 20,
+          horizontal: 12,
+        ),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
@@ -241,13 +317,17 @@ class _AssistantDashboardPageState extends State<AssistantDashboardPage> {
             CircleAvatar(
               radius: 24,
               backgroundColor: color.withValues(alpha: 0.15),
-              child: Icon(icon, color: color, size: 26),
+              child: Icon(
+                icon,
+                color: color,
+                size: 26,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
                 color: AppColors.textPrimary,

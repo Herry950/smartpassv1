@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class NotificationItem extends StatelessWidget {
@@ -26,7 +27,7 @@ class NotificationItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: unread
             ? color.withValues(alpha: .08)
-            : Colors.grey.shade50,
+            : AppColors.background,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -58,8 +59,8 @@ class NotificationItem extends StatelessWidget {
 
                 Text(
                   message,
-                  style: const TextStyle(
-                    color: Colors.black54,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -70,9 +71,9 @@ class NotificationItem extends StatelessWidget {
             children: [
               Text(
                 time,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey,
+                  color: AppColors.textSecondary,
                 ),
               ),
 

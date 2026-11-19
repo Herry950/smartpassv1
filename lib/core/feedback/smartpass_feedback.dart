@@ -70,7 +70,7 @@ class SmartPassFeedback {
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: AppColors.border),
+            side: BorderSide(color: AppColors.border),
           ),
           icon: Icon(
             _iconFor(message.type),
@@ -80,7 +80,7 @@ class SmartPassFeedback {
           title: Text(
             message.title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w700,
             ),
@@ -92,7 +92,7 @@ class SmartPassFeedback {
                 Text(
                   message.message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     height: 1.5,
                   ),

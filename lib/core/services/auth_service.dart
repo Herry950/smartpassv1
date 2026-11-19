@@ -1,11 +1,26 @@
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+
+class AssistantAccessException implements Exception {
+  final String message;
+
+  const AssistantAccessException(this.message);
+
+  @override
+  String toString() => message;
+}
 
 class AuthService {
   AuthService._();
 
   static final SupabaseClient _client =
       Supabase.instance.client;
+
+  static const String assistantInactiveMessage =
+      'Accès refusé : votre compte assistant est actuellement '
+      'désactivé. Veuillez contacter l’administration de votre '
+      'faculté pour réactiver votre compte.';
 
   static Future<AuthResponse> signIn({
     required String email,
@@ -58,7 +73,62 @@ class AuthService {
   }
 
   static Future<void> signOut() async {
+    clearRoleCache();
     await _client.auth.signOut();
+  }
+
+  // ===========================================================
+  // RÔLES ET ESPACES
+  // ===========================================================
+
+  /// Rôles reconnus par l'application.
+  static const String roleStudent = 'student';
+  static const String roleAssistant = 'assistant';
+  static const String roleFacultyAdmin = 'admin';
+  static const String roleCentralAdmin = 'central_admin';
+  static const String roleInactiveAdmin = 'admin_inactive';
+
+  static String? _cachedRoleUserId;
+  static String? _cachedRole;
+
+  static void clearRoleCache() {
+    _cachedRoleUserId = null;
+    _cachedRole = null;
+  }
+
+  /// Rôle de l'utilisateur connecté, mis en cache pour la navigation.
+  static Future<String?> getCachedUserRole() async {
+    final user = currentUser;
+
+    if (user == null) {
+      clearRoleCache();
+      return null;
+    }
+
+    if (_cachedRoleUserId == user.id && _cachedRole != null) {
+      return _cachedRole;
+    }
+
+    final role = await getUserRole();
+    _cachedRoleUserId = user.id;
+    _cachedRole = role;
+    return role;
+  }
+
+  /// Page d'accueil de chaque rôle.
+  static String? homeRouteForRole(String? role) {
+    switch (role) {
+      case roleStudent:
+        return '/student';
+      case roleAssistant:
+        return '/assistant';
+      case roleFacultyAdmin:
+        return '/admin';
+      case roleCentralAdmin:
+        return '/central';
+      default:
+        return null;
+    }
   }
 
   static User? get currentUser =>
@@ -96,15 +166,99 @@ class AuthService {
 
     final admin = await _client
         .from('admins')
-        .select('id')
+        .select('id, faculty_id, is_active')
         .eq('auth_user_id', uid)
         .maybeSingle();
 
     if (admin != null) {
-      return "admin";
+      if (admin['is_active'] != true) {
+        return roleInactiveAdmin;
+      }
+
+      // Le statut central est confirmé par le backend
+      // (is_central_admin : compte actif et faculty_id IS NULL),
+      // jamais par le libellé textuel du rôle.
+      final isCentral =
+          await _client.rpc('is_central_admin') as bool? ?? false;
+
+      if (isCentral) {
+        return roleCentralAdmin;
+      }
+
+      if (admin['faculty_id'] != null) {
+        return roleFacultyAdmin;
+      }
+
+      return roleInactiveAdmin;
     }
 
     return null;
+  }
+
+  // Récupère le profil complet de l'assistant connecté,
+  // y compris les informations de sa faculté.
+  static Future<Map<String, dynamic>?> getAssistantProfile() async {
+    final user = currentUser;
+
+    if (user == null) {
+      throw const AssistantAccessException(
+        'Votre session a expiré. Veuillez vous reconnecter.',
+      );
+    }
+
+    final assistant = await _client
+        .from('assistants')
+        .select('''
+          id,
+          employee_number,
+          full_name,
+          phone,
+          email,
+          is_active,
+          faculty_id,
+          faculty:academic_faculties(
+            name,
+            is_active
+          )
+        ''')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+    return assistant;
+  }
+
+  // Vérifie que l'assistant connecté possède un compte actif.
+  // Cette méthode sera appelée avant les opérations réservées
+  // aux assistants actifs.
+  static Future<void> ensureAssistantIsActive() async {
+    final user = currentUser;
+
+    if (user == null) {
+      throw const AssistantAccessException(
+        'Votre session a expiré. Veuillez vous reconnecter.',
+      );
+    }
+
+    final assistant = await _client
+        .from('assistants')
+        .select('is_active')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+    if (assistant == null) {
+      throw const AssistantAccessException(
+        'Profil assistant introuvable. Veuillez contacter '
+        'l’administration de votre faculté.',
+      );
+    }
+
+    final isActive = assistant['is_active'] == true;
+
+    if (!isActive) {
+      throw const AssistantAccessException(
+        assistantInactiveMessage,
+      );
+    }
   }
 
   static Future<String?> getStudentId() async {
@@ -147,14 +301,15 @@ class AuthService {
       debugPrint('Erreur test reçu : $e');
     }
   }
-  //methode de diagnostic
+
+  // Méthode de diagnostic.
   static String getSessionStatus() {
-  final session = _client.auth.currentSession;
+    final session = _client.auth.currentSession;
 
-  if (session == null) {
-    return 'NO_SESSION';
+    if (session == null) {
+      return 'NO_SESSION';
+    }
+
+    return 'SESSION_ACTIVE';
   }
-
-  return 'SESSION_ACTIVE';
-}
 }

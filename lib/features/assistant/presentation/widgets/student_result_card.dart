@@ -24,7 +24,7 @@ class StudentResultCard extends StatelessWidget {
               radius: 42,
               backgroundColor:
                   AppColors.primary.withValues(alpha: .12),
-              child: const Icon(
+              child: Icon(
                 Icons.person,
                 size: 42,
                 color: AppColors.primary,

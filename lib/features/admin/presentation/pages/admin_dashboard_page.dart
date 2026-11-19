@@ -1,8 +1,14 @@
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/services/admin_context_service.dart';
 import '../../../../core/services/assistant_management_service.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/reconciliation_service.dart';
+import '../../../../shared/widgets/app_settings_card.dart';
+import '../../../../shared/widgets/change_password_dialog.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -15,6 +21,159 @@ class AdminDashboardPage extends StatefulWidget {
 class _AdminDashboardPageState extends State<AdminDashboardPage> {
   int _selectedIndex = 0;
   bool _isTestingAdmin = false;
+
+  final AdminContextService _contextService = AdminContextService();
+  AdminContext? _adminContext;
+  Map<String, int>? _stats;
+  String? _statsError;
+
+  /// Dossiers de double paiement nécessitant une action (null : module
+  /// indisponible, par exemple non encore déployé).
+  int? _reconciliationsToHandle;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _statsError = null);
+
+    try {
+      final adminContext = await _contextService.load();
+      final stats = await _contextService.loadFacultyStats(adminContext);
+
+      if (!mounted) return;
+
+      setState(() {
+        _adminContext = adminContext;
+        _stats = stats;
+      });
+
+      _loadReconciliationCount();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _statsError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _loadReconciliationCount() async {
+    try {
+      final data = await ReconciliationService().list();
+      const toHandle = {
+        'suspected',
+        'confirmed',
+        'awaiting_funds',
+        'refund_contested',
+      };
+      final count = (data['items'] as List? ?? const [])
+          .whereType<Map>()
+          .where((item) => toHandle.contains(item['status']))
+          .length;
+      if (mounted) setState(() => _reconciliationsToHandle = count);
+    } catch (_) {
+      if (mounted) setState(() => _reconciliationsToHandle = null);
+    }
+  }
+
+  String _statValue(String key) {
+    if (_statsError != null) return '!';
+    final value = _stats?[key];
+    return value == null ? '…' : value.toString();
+  }
+
+  Future<void> _logout() async {
+    try {
+      await AuthService.signOut();
+      if (mounted) context.go('/login');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la déconnexion : $e')),
+      );
+    }
+  }
+
+  void _openProfile() {
+    final adminContext = _adminContext;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor:
+                            AppColors.primary.withValues(alpha: .12),
+                        child: Icon(
+                          Icons.admin_panel_settings_rounded,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      title: Text(
+                        adminContext?.fullName.isNotEmpty == true
+                            ? adminContext!.fullName
+                            : 'Administrateur facultaire',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        [
+                          adminContext?.email,
+                          adminContext?.facultyName,
+                        ].whereType<String>().join(' • '),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AppSettingsCard(
+                      onChangePassword: () =>
+                          showChangePasswordDialog(sheetContext),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                          side: const BorderSide(color: AppColors.error),
+                          minimumSize: const Size(double.infinity, 48),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          _logout();
+                        },
+                        icon: const Icon(Icons.logout_rounded),
+                        label: const Text('Déconnexion'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openModule(int moduleIndex) {
+    setState(() => _selectedIndex = moduleIndex + 1);
+    context.push(_modules[moduleIndex].route);
+  }
 
   Future<void> _testAdminAuthorization() async {
     if (_isTestingAdmin) return;
@@ -34,7 +193,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor:
-              isAuthorized ? Colors.green : AppColors.error,
+              isAuthorized ? AppColors.success : AppColors.error,
           content: Text(
             isAuthorized
                 ? 'Autorisation Admin confirmée par Supabase.'
@@ -58,46 +217,51 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
+  // Modules réservés à l'administration facultaire.
   final List<_AdminModule> _modules = const [
     _AdminModule(
+      title: 'Cours et Évaluations',
+      description: 'Gérer les cours et les évaluations de la faculté',
+      icon: Icons.menu_book_rounded,
+      route: '/admin/courses',
+    ),
+    _AdminModule(
+      title: 'Sessions d’Évaluation',
+      description: 'Créer, ouvrir et clôturer les sessions de la faculté',
+      icon: Icons.event_note_rounded,
+      route: '/admin/sessions',
+    ),
+    _AdminModule(
       title: 'Assistants',
-      description: 'Créer et gérer les comptes assistants',
+      description: 'Créer et gérer les assistants de la faculté',
       icon: Icons.support_agent_rounded,
+      route: '/admin/assistants',
+    ),
+    _AdminModule(
+      title: 'Remises des paiements',
+      description:
+          'Suivre les espèces collectées par les assistants et confirmer les remises',
+      icon: Icons.account_balance_wallet_outlined,
+      route: '/admin/cash-remittances',
     ),
     _AdminModule(
       title: 'Affectations',
-      description: 'Gérer les salles et les sessions',
+      description: 'Affecter les assistants aux sessions d’évaluation de la faculté',
       icon: Icons.assignment_ind_rounded,
+      route: '/admin/assignments',
     ),
     _AdminModule(
-      title: 'Années académiques',
-      description: 'Ouvrir et clôturer les années',
-      icon: Icons.calendar_month_rounded,
-    ),
-    _AdminModule(
-      title: 'Étudiants et cartes',
-      description: 'Consulter les étudiants et émettre les cartes',
-      icon: Icons.badge_outlined,
-    ),
-    _AdminModule(
-      title: 'Sessions d’examen',
-      description: 'Créer, ouvrir et clôturer les sessions',
-      icon: Icons.event_note_rounded,
-    ),
-    _AdminModule(
-      title: 'Paiements',
-      description: 'Suivre les paiements électroniques et espèces',
-      icon: Icons.payments_outlined,
-    ),
-    _AdminModule(
-      title: 'Salles et cours',
-      description: 'Consulter les salles et les cours',
-      icon: Icons.meeting_room_outlined,
-    ),
-    _AdminModule(
-      title: 'Rapports et contrôle',
-      description: 'Consulter les activités et les historiques',
+      title: 'Rapports et Contrôle',
+      description: 'Consulter les activités et les historiques de la faculté',
       icon: Icons.analytics_outlined,
+      route: '/admin/reports',
+    ),
+    _AdminModule(
+      title: 'Doubles paiements',
+      description:
+          'Traiter les encaissements en trop et les remboursements manuels',
+      icon: Icons.currency_exchange_rounded,
+      route: '/admin/reconciliations',
     ),
   ];
 
@@ -113,16 +277,20 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               ? null
               : AppBar(
                   title: const Text(
-                    'SmartPass Admin',
+                    'SmartPass Faculté',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   backgroundColor: AppColors.surface,
                   actions: [
                     IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                      ),
+                      tooltip: 'Actualiser',
+                      onPressed: _loadStats,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
+                    IconButton(
+                      tooltip: 'Mon Profil',
+                      onPressed: _openProfile,
+                      icon: const Icon(Icons.person_outline_rounded),
                     ),
                   ],
                 ),
@@ -178,7 +346,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'SmartPass',
                         style: TextStyle(
@@ -191,8 +359,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   ],
                 ),
                 const SizedBox(height: 40),
-                const Text(
-                  'ESPACE ADMINISTRATEUR',
+                Text(
+                  'ESPACE ADMINISTRATEUR FACULTAIRE',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -207,8 +375,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   index: 0,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'GESTION',
+                Text(
+                  'GESTION DE LA FACULTÉ',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -228,7 +396,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                   );
                 }),
                 const Spacer(),
-                const Divider(color: AppColors.border),
+                Divider(color: AppColors.border),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.person_outline_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                  title: const Text('Mon Profil'),
+                  onTap: _openProfile,
+                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(
@@ -239,15 +416,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                     'Déconnexion',
                     style: TextStyle(color: AppColors.error),
                   ),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'La déconnexion sera reliée à AuthService.',
-                        ),
-                      ),
-                    );
-                  },
+                  onTap: _logout,
                 ),
               ],
             ),
@@ -280,20 +449,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             Navigator.pop(context);
           }
 
-          // Assistants : ouverture de la page de gestion.
-          if (index == 1) {
-            context.push('/admin/assistants');
-            return;
-          }
-
-          if (index != 0) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  '$label : module à connecter prochainement.',
-                ),
-              ),
-            );
+          if (index > 0 && index <= _modules.length) {
+            context.push(_modules[index - 1].route);
           }
         },
         child: Padding(
@@ -348,8 +505,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Vue générale de la gestion universitaire.',
+                    Text(
+                      'Espace de gestion et de suivi de votre faculté.',
                       style: TextStyle(
                         color: AppColors.textSecondary,
                       ),
@@ -359,10 +516,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               ),
               if (isDesktop)
                 IconButton(
-                  tooltip: 'Notifications',
-                  onPressed: () {},
+                  tooltip: 'Actualiser',
+                  onPressed: _loadStats,
                   icon: const Icon(
-                    Icons.notifications_none_rounded,
+                    Icons.refresh_rounded,
                     size: 26,
                   ),
                 ),
@@ -410,7 +567,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Administration SmartPass',
+                  'Administration facultaire SmartPass',
                   style: Theme.of(context)
                       .textTheme
                       .headlineSmall
@@ -421,8 +578,9 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Pilotez les opérations académiques, '
-                  'les paiements et le contrôle d’accès aux examens.',
+                  'Gérez les activités académiques, les assistants, '
+                  'les paiements et le contrôle d’accès aux examens '
+                  'dans le périmètre de votre faculté.',
                   style: TextStyle(
                     color: Colors.white,
                     height: 1.5,
@@ -447,26 +605,31 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             childAspectRatio: isDesktop ? 1.65 : 1.25,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            children: const [
+            children: [
               _StatCard(
-                title: 'Étudiants',
-                value: '—',
+                title: 'Étudiants de la faculté',
+                value: _statValue('students'),
                 icon: Icons.school_outlined,
               ),
               _StatCard(
-                title: 'Assistants',
-                value: '—',
+                title: 'Assistants actifs',
+                value: _statValue('active_assistants'),
                 icon: Icons.support_agent_rounded,
               ),
               _StatCard(
-                title: 'Sessions ouvertes',
-                value: '—',
+                title: 'Sessions ouvertes aux paiements',
+                value: _statValue('open_sessions'),
                 icon: Icons.event_available_rounded,
               ),
               _StatCard(
                 title: 'Paiements validés',
-                value: '—',
+                value: _statValue('validated_payments'),
                 icon: Icons.payments_outlined,
+              ),
+              _StatCard(
+                title: 'Doubles paiements à traiter',
+                value: _reconciliationsToHandle?.toString() ?? '—',
+                icon: Icons.currency_exchange_rounded,
               ),
             ],
           ),
@@ -479,8 +642,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Sélectionnez un module pour accéder à ses fonctionnalités.',
+          Text(
+            'Sélectionnez un module pour gérer les activités de votre faculté.',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
@@ -502,23 +665,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
 
               return _ModuleCard(
                 module: module,
-                onTap: () {
-                  setState(() => _selectedIndex = index + 1);
-
-                  // La première carte est celle des Assistants.
-                  if (index == 0) {
-                    context.push('/admin/assistants');
-                    return;
-                  }
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '${module.title} : module à développer.',
-                      ),
-                    ),
-                  );
-                },
+                onTap: () => _openModule(index),
               );
             },
           ),
@@ -551,7 +698,7 @@ class _StatCard extends StatelessWidget {
             Icon(icon, color: AppColors.primary, size: 23),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 25,
                 fontWeight: FontWeight.bold,
                 color: AppColors.primaryDark,
@@ -561,7 +708,7 @@ class _StatCard extends StatelessWidget {
               title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
@@ -623,7 +770,7 @@ class _ModuleCard extends StatelessWidget {
                       module.description,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textSecondary,
                       ),
@@ -631,7 +778,7 @@ class _ModuleCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 15,
                 color: AppColors.textSecondary,
@@ -648,10 +795,12 @@ class _AdminModule {
   final String title;
   final String description;
   final IconData icon;
+  final String route;
 
   const _AdminModule({
     required this.title,
     required this.description,
     required this.icon,
+    required this.route,
   });
 }

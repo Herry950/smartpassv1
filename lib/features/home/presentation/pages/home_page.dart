@@ -61,7 +61,7 @@ class HomePage extends StatelessWidget {
                                     const SizedBox(height: 16),
 
                                     Text(
-                                      "La plateforme intelligente de gestion "
+                                      "La plateforme de gestion "
                                       "des accès aux examens universitaires.",
                                       style: Theme.of(context)
                                           .textTheme
@@ -115,7 +115,7 @@ class HomePage extends StatelessWidget {
                               const SizedBox(height: 16),
 
                               Text(
-                                "La plateforme intelligente de gestion "
+                                "La plateforme de gestion "
                                 "des accès aux examens universitaires.",
                                 textAlign: TextAlign.center,
                                 style: Theme.of(context)

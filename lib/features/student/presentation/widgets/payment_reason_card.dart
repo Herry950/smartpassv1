@@ -41,8 +41,8 @@ class PaymentReasonCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.grey,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -70,7 +70,7 @@ class PaymentReasonCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius:
             BorderRadius.circular(24),
         boxShadow: [

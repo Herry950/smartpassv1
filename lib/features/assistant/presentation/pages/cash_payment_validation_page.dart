@@ -1,3 +1,4 @@
+import 'package:myprojectflut/shared/widgets/home_button.dart';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -16,7 +17,8 @@ class CashPaymentValidationPage extends StatefulWidget {
       _CashPaymentValidationPageState();
 }
 
-class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
+class _CashPaymentValidationPageState
+    extends State<CashPaymentValidationPage> {
   final _supabase = Supabase.instance.client;
   final _matriculeController = TextEditingController();
   final _service = CashPaymentValidationService();
@@ -63,13 +65,73 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
         '${hex.substring(20)}';
   }
 
-  Future<void> _loadSessions() async {
-    setState(() {
-      _loadingSessions = true;
-      _error = null;
-    });
+  /// Vérification destinée à améliorer les messages de l'interface.
+  ///
+  /// La sécurité réelle reste assurée par Supabase et l'Edge Function.
+  Future<String?> _checkAssistantAccess() async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      return 'Votre session a expiré. Veuillez vous reconnecter.';
+    }
 
     try {
+      final assistant = await _supabase
+          .from('assistants')
+          .select('id, is_active')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+
+      if (assistant == null) {
+        return 'Compte assistant introuvable. '
+            'Veuillez contacter l’administration.';
+      }
+
+      if (assistant['is_active'] != true) {
+        return 'Votre compte assistant est désactivé. '
+            'Vous devez disposer d’un compte assistant actif '
+            'pour effectuer cette opération.';
+      }
+
+      return null;
+    } on PostgrestException catch (error) {
+      debugPrint(
+        'Erreur vérification assistant : '
+        '${error.code} - ${error.message}',
+      );
+
+      return 'Impossible de vérifier votre compte assistant. '
+          'Veuillez réessayer.';
+    } catch (error) {
+      debugPrint('Erreur accès assistant : $error');
+
+      return 'Impossible de vérifier votre autorisation. '
+          'Vérifiez votre connexion.';
+    }
+  }
+
+  Future<void> _loadSessions() async {
+    if (mounted) {
+      setState(() {
+        _loadingSessions = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final accessError = await _checkAssistantAccess();
+
+      if (!mounted) return;
+
+      if (accessError != null) {
+        setState(() {
+          _loadingSessions = false;
+          _error = accessError;
+          _sessions = [];
+        });
+        return;
+      }
+
       final data = await _supabase
           .from('exam_sessions')
           .select(
@@ -85,12 +147,28 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
         _sessions = List<Map<String, dynamic>>.from(data);
         _loadingSessions = false;
       });
-    } catch (_) {
+    } on PostgrestException catch (error) {
+      debugPrint(
+        'Erreur chargement sessions : '
+        '${error.code} - ${error.message}',
+      );
+
       if (!mounted) return;
 
       setState(() {
         _loadingSessions = false;
-        _error = 'Impossible de charger les sessions d’examen.';
+        _error = 'Impossible de charger les sessions d’examen. '
+            'Vérifiez votre connexion ou vos autorisations.';
+      });
+    } catch (error) {
+      debugPrint('Erreur chargement sessions : $error');
+
+      if (!mounted) return;
+
+      setState(() {
+        _loadingSessions = false;
+        _error = 'Une erreur est survenue lors du chargement '
+            'des sessions d’examen.';
       });
     }
   }
@@ -101,6 +179,7 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
     if (matricule.isEmpty) {
       setState(() {
         _error = 'Saisissez le matricule de l’étudiant.';
+        _student = null;
       });
       return;
     }
@@ -115,6 +194,19 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
     });
 
     try {
+      // Vérifier d'abord que l'assistant est actif.
+      final accessError = await _checkAssistantAccess();
+
+      if (!mounted) return;
+
+      if (accessError != null) {
+        setState(() {
+          _searching = false;
+          _error = accessError;
+        });
+        return;
+      }
+
       final data = await _supabase
           .from('students')
           .select(
@@ -131,15 +223,32 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
         _searching = false;
 
         if (data == null) {
-          _error = 'Aucun étudiant trouvé pour ce matricule.';
+          _error = 'Aucun étudiant trouvé dans le périmètre '
+              'accessible à votre compte assistant. '
+              'Vérifiez le matricule ou contactez votre administration.';
         }
       });
-    } catch (_) {
+    } on PostgrestException catch (error) {
+      debugPrint(
+        'Erreur recherche étudiant : '
+        '${error.code} - ${error.message}',
+      );
+
       if (!mounted) return;
 
       setState(() {
         _searching = false;
-        _error = 'La recherche a échoué. Vérifiez la connexion.';
+        _error = 'La recherche de l’étudiant a échoué. '
+            'Vérifiez votre connexion et vos autorisations.';
+      });
+    } catch (error) {
+      debugPrint('Erreur recherche étudiant : $error');
+
+      if (!mounted) return;
+
+      setState(() {
+        _searching = false;
+        _error = 'Une erreur est survenue pendant la recherche.';
       });
     }
   }
@@ -158,6 +267,29 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
   ) async {
     if (!mounted) return;
 
+    // Erreurs qui doivent être présentées directement dans la page.
+    // Elles ne correspondent pas aux trois messages métier existants.
+    switch (exception.code) {
+      case 'SESSION_EXPIRED':
+        setState(() {
+          _error = exception.message;
+        });
+        return;
+
+      case 'PAYMENT_RESPONSE_INVALID':
+        setState(() {
+          _error = exception.message;
+        });
+        return;
+    }
+
+    if (exception.status == 401 || exception.status == 403) {
+      setState(() {
+        _error = exception.message;
+      });
+      return;
+    }
+
     final SmartPassMessageCode code;
 
     switch (exception.code) {
@@ -174,9 +306,14 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
         break;
 
       default:
-        code = exception.status == 409
-            ? SmartPassMessageCode.paymentConflict
-            : SmartPassMessageCode.genericError;
+        if (exception.status == 409) {
+          code = SmartPassMessageCode.paymentConflict;
+        } else {
+          setState(() {
+            _error = exception.message;
+          });
+          return;
+        }
     }
 
     await SmartPassFeedback.showDialogMessage(
@@ -277,7 +414,9 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
       });
 
       await _showPaymentError(exception);
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Erreur inattendue validation espèces : $error');
+
       if (!mounted) return;
 
       setState(() {
@@ -301,9 +440,39 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                tooltip: 'Retour à la page précédente',
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () {
+                  Navigator.of(context).maybePop();
+                },
+              )
+            : null,
         title: const Text('Validation manuelle'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        actions: [
+          const HomeButton(),
+          IconButton(
+            tooltip: 'Actualiser les sessions',
+            onPressed: _loadingSessions || _processing
+                ? null
+                : _loadSessions,
+            icon: _loadingSessions
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: Center(
@@ -312,7 +481,7 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Icon(
+                Icon(
                   Icons.payments_outlined,
                   size: 48,
                   color: AppColors.primary,
@@ -415,7 +584,7 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
                                         (student['photo_url'] as String?)
                                                 ?.isEmpty ==
                                             true
-                                    ? const Icon(
+                                    ? Icon(
                                         Icons.person,
                                         color: AppColors.primary,
                                       )
@@ -471,7 +640,10 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
                           if (_loadingSessions)
                             const Center(child: CircularProgressIndicator())
                           else if (_sessions.isEmpty)
-                            const Text('Aucune session ouverte au paiement.')
+                            const Text(
+                              'Aucune session ouverte au paiement '
+                              'ou accessible à votre compte.',
+                            )
                           else
                             DropdownButtonFormField<String>(
                               initialValue: session?['id'] as String?,
@@ -597,7 +769,7 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
                   if (_result!.receiptNumber != null)
                     Card(
                       child: ListTile(
-                        leading: const Icon(
+                        leading: Icon(
                           Icons.receipt_long_outlined,
                           color: AppColors.primary,
                         ),
@@ -607,7 +779,7 @@ class _CashPaymentValidationPageState extends State<CashPaymentValidationPage> {
                     ),
                   if (_result!.payment?['receipt_signature'] != null &&
                       !_result!.signaturePending)
-                    const ListTile(
+                    ListTile(
                       leading: Icon(Icons.verified, color: AppColors.primary),
                       title: Text('Signature du reçu disponible'),
                     ),
@@ -629,7 +801,7 @@ class _MessagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isError ? Colors.red.shade700 : AppColors.primary;
+    final color = isError ? AppColors.error : AppColors.primary;
 
     return Container(
       padding: const EdgeInsets.all(14),

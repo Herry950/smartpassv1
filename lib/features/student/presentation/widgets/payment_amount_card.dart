@@ -18,7 +18,7 @@ class PaymentAmountCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -30,11 +30,11 @@ class PaymentAmountCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text(
+          Text(
             "Montant à payer",
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey,
+              color: AppColors.textSecondary,
             ),
           ),
 
@@ -55,11 +55,11 @@ class PaymentAmountCard extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          const Text(
-            "Le montant est fixé par l'administration universitaire.",
+          Text(
+            "Le montant est fixé par l'administration.",
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.grey,
+              color: AppColors.textSecondary,
               fontSize: 13,
             ),
           ),

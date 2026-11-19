@@ -42,7 +42,7 @@ class ProfileHeader extends StatelessWidget {
                   ? NetworkImage(student.photoUrl!)
                   : null,
               child: !hasPhoto
-                  ? const Icon(
+                  ? Icon(
                       Icons.person,
                       size: 60,
                       color: AppColors.primary,

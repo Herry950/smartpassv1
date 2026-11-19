@@ -1,3 +1,4 @@
+import 'package:myprojectflut/app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class RoleCard extends StatefulWidget {
@@ -37,7 +38,7 @@ class _RoleCardState extends State<RoleCard> {
           border: Border.all(
             color: _hovering
                 ? theme.colorScheme.primary
-                : Colors.grey.shade300,
+                : AppColors.border,
             width: 1.5,
           ),
           boxShadow: [

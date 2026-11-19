@@ -1,20 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'quick_action_button.dart';
+import 'package:myprojectflut/shared/widgets/module_tile_grid.dart';
 
+/// Actions rapides de l'étudiant, avec la même grille de tuiles
+/// que l'espace d'administration centrale (référence visuelle).
 class QuickActionsCard extends StatelessWidget {
   const QuickActionsCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-
-    final crossAxisCount = width >= 1100
-        ? 3
-        : width >= 700
-            ? 3
-            : 2;
+    final tiles = [
+      ModuleTileData(
+        icon: Icons.qr_code_2_rounded,
+        label: 'Ma carte',
+        onTap: () => context.push('/student/card'),
+      ),
+      ModuleTileData(
+        icon: Icons.payment_rounded,
+        label: 'Payer',
+        onTap: () => context.push('/student/payment'),
+      ),
+      ModuleTileData(
+        icon: Icons.event_available_rounded,
+        label: 'Mes examens',
+        onTap: () => context.push('/student/exams'),
+      ),
+      ModuleTileData(
+        icon: Icons.receipt_long_rounded,
+        label: 'Mes reçus',
+        onTap: () => context.push('/student/receipts'),
+      ),
+      ModuleTileData(
+        icon: Icons.notifications_active_rounded,
+        label: 'Notifications',
+        onTap: () => context.push('/student/notifications'),
+      ),
+      ModuleTileData(
+        icon: Icons.currency_exchange_rounded,
+        label: 'Remboursements',
+        onTap: () => context.push('/student/reconciliations'),
+      ),
+      ModuleTileData(
+        icon: Icons.person_rounded,
+        label: 'Mon profil',
+        onTap: () => context.push('/student/profile'),
+      ),
+    ];
 
     return Card(
       elevation: 0,
@@ -27,66 +59,11 @@ class QuickActionsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "⚡ Actions rapides",
+              'Actions rapides',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-
-            const SizedBox(height: 24),
-
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.15,
-              children: [
-                QuickActionButton(
-                  icon: Icons.qr_code_2_rounded,
-                  label: "Ma carte",
-                  color: Colors.indigo,
-                  onTap: () {
-                    context.go('/student/card');
-                  },
-                ),
-
-                QuickActionButton(
-                  icon: Icons.payment_rounded,
-                  label: "Payer",
-                  color: Colors.green,
-                  onTap: () {
-                    context.go('/student/payment');
-                  },
-                ),
-
-                QuickActionButton(
-                  icon: Icons.picture_as_pdf_rounded,
-                  label: "Mes reçus",
-                  color: Colors.red,
-                  onTap: () {
-                    context.go('/student/receipts');
-                  },
-                ),
-
-                QuickActionButton(
-                  icon: Icons.notifications_active_rounded,
-                  label: "Notifications",
-                  color: Colors.orange,
-                  onTap: () {
-                    context.go('/student/notifications');
-                  },
-                ),
-
-                QuickActionButton(
-                  icon: Icons.person_rounded,
-                  label: "Mon profil",
-                  color: Colors.deepPurple,
-                  onTap: () {
-                    context.go('/student/profile');
-                  },
-                ),
-              ],
-            ),
+            const SizedBox(height: 20),
+            ModuleTileGrid(tiles: tiles),
           ],
         ),
       ),
