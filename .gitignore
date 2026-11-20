@@ -61,3 +61,22 @@ supabase/.env.*
 
 # Sauvegardes locales de la base (données personnelles)
 supabase/backups/
+
+# Fichiers internes conservés uniquement en local (jamais publiés)
+CLAUDE.md
+.claude/
+*.txt
+!**/CMakeLists.txt
+supabase/
+scripts/
+.vscode/
+*.sql
+*.ps1
+*.sh
+*.py
+*.bat
+*.cmd
+database.types.ts
+momtree
+nowtree
+flutter_0*.png

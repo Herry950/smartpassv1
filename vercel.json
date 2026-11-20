@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "bash scripts/vercel_install_flutter.sh",
+  "installCommand": "if [ ! -d flutter ]; then git clone --depth 1 --branch 3.41.6 https://github.com/flutter/flutter.git flutter; fi && flutter/bin/flutter config --no-analytics --enable-web && flutter/bin/flutter pub get",
   "buildCommand": "flutter/bin/flutter build web --release",
   "outputDirectory": "build/web",
   "framework": null,
