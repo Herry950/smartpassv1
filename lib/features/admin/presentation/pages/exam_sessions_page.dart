@@ -248,7 +248,97 @@ class _ExamSessionsPageState extends State<ExamSessionsPage> {
           if (_sessions.isEmpty)
             _buildEmptyState()
           else
-            ..._sessions.map(_buildSessionCard),
+            ..._buildGroupedSessions(),
+        ],
+      ),
+    );
+  }
+
+  /// Année d'une session (jointure academic_years).
+  Map<String, dynamic>? _yearOf(Map<String, dynamic> session) {
+    final year = session['academic_years'];
+    return year is Map ? Map<String, dynamic>.from(year) : null;
+  }
+
+  /// Session d'une année antérieure à l'année courante : historique,
+  /// consultable mais non réouvrable (règle également appliquée en base).
+  bool _isHistorical(Map<String, dynamic> session) {
+    final currentStart =
+        DateTime.tryParse(_academicYear?['start_date']?.toString() ?? '');
+    final yearStart =
+        DateTime.tryParse(_yearOf(session)?['start_date']?.toString() ?? '');
+    if (currentStart == null || yearStart == null) return false;
+    return yearStart.isBefore(currentStart);
+  }
+
+  List<Widget> _buildGroupedSessions() {
+    final currentId = _academicYear?['id']?.toString();
+
+    final current = <Map<String, dynamic>>[];
+    final otherYears = <Map<String, dynamic>>[];
+    final historical = <Map<String, dynamic>>[];
+
+    for (final session in _sessions) {
+      if (session['academic_year_id']?.toString() == currentId) {
+        current.add(session);
+      } else if (_isHistorical(session)) {
+        historical.add(session);
+      } else {
+        otherYears.add(session);
+      }
+    }
+
+    final widgets = <Widget>[];
+
+    void addGroup(
+      String title,
+      String subtitle,
+      List<Map<String, dynamic>> items,
+    ) {
+      if (items.isEmpty) return;
+      widgets
+        ..add(_buildGroupHeader(title, subtitle, items.length))
+        ..addAll(items.map(_buildSessionCard));
+    }
+
+    addGroup(
+      'Année courante (${_academicYear?['name'] ?? '—'})',
+      'Sessions de l’année académique en cours.',
+      current,
+    );
+    addGroup(
+      'Autres années en cours',
+      'Sessions d’années non antérieures à l’année courante.',
+      otherYears,
+    );
+    addGroup(
+      'Historique — années antérieures',
+      'Consultation uniquement : les paiements ne peuvent plus être rouverts.',
+      historical,
+    );
+
+    return widgets;
+  }
+
+  Widget _buildGroupHeader(String title, String subtitle, int count) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$title • $count',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
         ],
       ),
     );
@@ -353,9 +443,13 @@ class _ExamSessionsPageState extends State<ExamSessionsPage> {
     // Session archivée (doublon remplacé) : historique conservé,
     // paiements définitivement fermés.
     final isArchived = session['status'] == 'archived';
+    final isHistorical = _isHistorical(session);
     final sessionName = session['session_name']?.toString() ?? 'Session';
-    final semester =
-        session['semester']?.toString() ?? 'Semestre non défini';
+    final yearName = _yearOf(session)?['name']?.toString();
+    final semester = [
+      session['semester']?.toString() ?? 'Semestre non défini',
+      ?yearName,
+    ].join(' • ');
     final amount = session['fee_amount']?.toString() ?? '0';
     final currency = session['currency']?.toString() ?? '';
 
@@ -446,6 +540,20 @@ class _ExamSessionsPageState extends State<ExamSessionsPage> {
                   'Session archivée : remplacée par la session de référence. '
                   'Son historique (paiements, reçus, examens) est conservé ; '
                   'elle n’accepte plus de paiements.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              )
+            else if (isHistorical && !isOpen)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.textSecondary.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Session d’une année académique antérieure : historique '
+                  'conservé, les paiements ne peuvent plus être rouverts.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               )

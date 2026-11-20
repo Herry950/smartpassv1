@@ -121,18 +121,9 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
   Future<void> _openCourseForm({
     Map<String, dynamic>? course,
   }) async {
-    if (course != null &&
-        (course['course_type'] == 'common_core' ||
-            course['course_type'] == 'faculty')) {
-      _showMessage(
-        SmartPassMessageCode.courseOperationFailed,
-        details: 'La modification des cours tronc-commun nécessite '
-            'une gestion spécifique de leurs départements associés. '
-            'Cette opération est temporairement protégée.',
-      );
-      return;
-    }
-
+    // Les trois types de cours sont modifiables : la cohérence est
+    // garantie côté serveur (RPC atomique pour le tronc commun,
+    // triggers d'intégrité, protection des cours déjà programmés).
     final result = await showDialog<CourseFormData>(
       context: context,
       barrierDismissible: !_isSaving,
@@ -188,6 +179,31 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
         if (!mounted) return;
 
         _showMessage(SmartPassMessageCode.courseCreated);
+      } else if (course['course_type'] == 'faculty') {
+        await _service.updateFacultyCourse(
+          courseId: course['id'].toString(),
+          code: data.code,
+          name: data.name,
+          promotion: data.promotion,
+          credits: data.credits,
+        );
+
+        if (!mounted) return;
+
+        _showMessage(SmartPassMessageCode.courseUpdated);
+      } else if (course['course_type'] == 'common_core') {
+        await _service.updateCommonCoreCourse(
+          courseId: course['id'].toString(),
+          code: data.code,
+          name: data.name,
+          promotion: data.promotion,
+          departmentIds: data.departmentIds,
+          credits: data.credits,
+        );
+
+        if (!mounted) return;
+
+        _showMessage(SmartPassMessageCode.courseUpdated);
       } else {
         await _service.updateCourse(
           courseId: course['id'].toString(),
@@ -221,8 +237,14 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
           SmartPassMessageCode.courseCodeAlreadyExists,
         );
       } else {
+        // Message serveur explicite (cours programmé, départements,
+        // promotion…) sans détail technique sensible.
         _showMessage(
           SmartPassMessageCode.courseOperationFailed,
+          details: error
+              .toString()
+              .replaceFirst('Exception: ', '')
+              .replaceFirst('Impossible de modifier le cours : ', ''),
         );
       }
     } finally {
@@ -1247,6 +1269,27 @@ class _CourseFormDialogState extends State<CourseFormDialog> {
           _departmentId!,
           restoreSavedPromotion: true,
         );
+      } else if (restoreSavedValues &&
+          _isCommonCore &&
+          widget.course?['id'] != null) {
+        // Modification d'un tronc commun : restaurer ses départements
+        // associés (course_departments) puis sa promotion.
+        final savedIds = await widget.service.getCourseDepartmentIds(
+          widget.course!['id'].toString(),
+        );
+
+        if (!mounted) return;
+
+        final available =
+            result.map((d) => d['id']?.toString()).toSet();
+
+        setState(() {
+          _selectedDepartmentIds
+            ..clear()
+            ..addAll(savedIds.where(available.contains));
+        });
+
+        await _loadPromotions(restoreSavedPromotion: true);
       }
     } catch (error, stackTrace) {
       debugPrint('Erreur chargement départements : $error');

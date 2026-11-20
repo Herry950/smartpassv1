@@ -624,6 +624,110 @@ class CourseManagementService {
     }
   }
 
+  /// Modifie un cours facultaire (sans département).
+  ///
+  /// Faculté, type et département (NULL) restent inchangés ; les
+  /// contrôles SQL (promotion de la faculté, cours programmé) s'appliquent.
+  Future<Map<String, dynamic>> updateFacultyCourse({
+    required String courseId,
+    required String code,
+    required String name,
+    required String promotion,
+    int? credits,
+  }) async {
+    _checkSession();
+
+    final normalizedCode = code.trim().toUpperCase();
+    final normalizedName = name.trim();
+    final normalizedPromotion = promotion.trim().toUpperCase();
+
+    if (normalizedCode.isEmpty ||
+        normalizedName.isEmpty ||
+        normalizedPromotion.isEmpty) {
+      throw Exception(
+        'Le code, le nom et la promotion sont obligatoires.',
+      );
+    }
+
+    if (credits != null && credits <= 0) {
+      throw Exception('Le nombre de crédits doit être supérieur à zéro.');
+    }
+
+    try {
+      final response = await _client
+          .from('courses')
+          .update({
+            'code': normalizedCode,
+            'name': normalizedName,
+            'promotion': normalizedPromotion,
+            'credits': credits,
+          })
+          .eq('id', courseId)
+          .eq('course_type', 'faculty')
+          .select()
+          .single();
+
+      return Map<String, dynamic>.from(response);
+    } on PostgrestException catch (error) {
+      if (error.code == '23505') {
+        throw Exception('Ce code de cours est déjà utilisé.');
+      }
+      throw Exception('Impossible de modifier le cours : ${error.message}');
+    }
+  }
+
+  /// Modifie un cours tronc commun et ses départements de manière
+  /// atomique (RPC update_common_core_course, droits de l'appelant).
+  Future<void> updateCommonCoreCourse({
+    required String courseId,
+    required String code,
+    required String name,
+    required String promotion,
+    required List<String> departmentIds,
+    int? credits,
+  }) async {
+    _checkSession();
+
+    if (departmentIds.toSet().length < 2) {
+      throw Exception(
+        'Un cours commun doit concerner au moins deux départements.',
+      );
+    }
+
+    try {
+      await _client.rpc(
+        'update_common_core_course',
+        params: {
+          'p_course_id': courseId,
+          'p_code': code.trim().toUpperCase(),
+          'p_name': name.trim(),
+          'p_promotion': promotion.trim().toUpperCase(),
+          'p_department_ids': departmentIds.toSet().toList(),
+          'p_credits': credits,
+        },
+      );
+    } on PostgrestException catch (error) {
+      if (error.code == '23505') {
+        throw Exception('Ce code de cours est déjà utilisé.');
+      }
+      throw Exception('Impossible de modifier le cours : ${error.message}');
+    }
+  }
+
+  /// Départements associés à un cours tronc commun.
+  Future<List<String>> getCourseDepartmentIds(String courseId) async {
+    _checkSession();
+
+    final response = await _client
+        .from('course_departments')
+        .select('department_id')
+        .eq('course_id', courseId);
+
+    return List<Map<String, dynamic>>.from(response)
+        .map((row) => row['department_id'].toString())
+        .toList();
+  }
+
   /// Active ou désactive un cours.
   Future<void> setCourseStatus({
     required String courseId,

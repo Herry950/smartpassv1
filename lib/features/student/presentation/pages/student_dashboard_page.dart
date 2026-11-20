@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import 'package:myprojectflut/core/models/student.dart';
 
+import 'package:myprojectflut/features/student/data/repositories/notification_repository.dart';
 import 'package:myprojectflut/features/student/data/repositories/student_dashboard_repository.dart';
 
 import 'package:myprojectflut/features/student/presentation/widgets/dashboard_stats_grid.dart';
@@ -29,6 +30,24 @@ class _StudentDashboardPageState extends State<StudentDashboardPage> {
     setState(() {
       _future = StudentDashboardRepository.loadDashboard();
     });
+  }
+
+  // Compteur de notifications non lues actualisé après chaque
+  // changement d'état de lecture (page Notifications).
+  void _onNotificationsChanged() {
+    if (mounted) _refresh();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationRepository.changes.addListener(_onNotificationsChanged);
+  }
+
+  @override
+  void dispose() {
+    NotificationRepository.changes.removeListener(_onNotificationsChanged);
+    super.dispose();
   }
 
   @override

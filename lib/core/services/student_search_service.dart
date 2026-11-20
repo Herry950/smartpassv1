@@ -100,15 +100,23 @@ class StudentSearchService {
         .from('assistant_assignments')
         .select(
           'exam_session_id, status, '
-          'exam_sessions(id, session_name, semester, academic_years(name))',
+          'exam_sessions(id, session_name, semester, payment_open, status, '
+          'academic_years(name))',
         )
         .eq('assistant_id', assistantData['id'])
         .eq('status', 'assigned');
 
+    // Contrôle d'accès : uniquement les sessions ouvertes et programmées
+    // (règle également appliquée par can_assistant_record_access).
     return List<Map<String, dynamic>>.from(response)
         .map((row) => row['exam_sessions'])
         .whereType<Map>()
         .map((session) => Map<String, dynamic>.from(session))
+        .where(
+          (session) =>
+              session['payment_open'] == true &&
+              session['status'] == 'scheduled',
+        )
         .toList();
   }
 

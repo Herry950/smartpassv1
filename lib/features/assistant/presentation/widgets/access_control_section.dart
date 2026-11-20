@@ -165,8 +165,8 @@ class _AccessControlSectionState extends State<AccessControlSection> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Sessions auxquelles vous êtes affecté. Le résultat dépend '
-            'uniquement du paiement validé de la session.',
+            'Sessions ouvertes auxquelles vous êtes affecté. Le résultat '
+            'dépend du paiement validé de l’étudiant pour chaque session.',
             style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -180,13 +180,73 @@ class _AccessControlSectionState extends State<AccessControlSection> {
           else if (_error != null)
             Text(_error!, style: const TextStyle(color: AppColors.error))
           else if (_sessions.isEmpty)
-            Text(
-              'Vous n’êtes affecté à aucune session. '
-              'Contactez l’administration de votre faculté.',
-              style: TextStyle(color: AppColors.textSecondary),
-            )
-          else
+            _buildSummary()
+          else ...[
+            _buildSummary(),
+            const SizedBox(height: 12),
             ..._sessions.map(_buildSessionTile),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _sessionLabel(Map<String, dynamic> session) {
+    return [
+      session['session_name']?.toString(),
+      session['semester']?.toString(),
+    ].whereType<String>().join(' — ');
+  }
+
+  /// Synthèse explicite : sessions ouvertes pour lesquelles l'étudiant
+  /// dispose d'un paiement validé.
+  Widget _buildSummary() {
+    final authorized = _sessions
+        .where((s) => _hasValidatedPayment(s['id'] as String))
+        .map(_sessionLabel)
+        .toList();
+
+    final String text;
+    if (_sessions.isEmpty) {
+      text = 'Aucune session ouverte autorisée : aucune des sessions qui '
+          'vous sont affectées n’est actuellement ouverte.';
+    } else if (authorized.isEmpty) {
+      text = 'Aucune session ouverte autorisée pour cet étudiant '
+          '(paiement non validé).';
+    } else if (authorized.length == 1) {
+      text = 'Accès autorisé à la session : ${authorized.first}';
+    } else {
+      text = 'Accès autorisé aux sessions : ${authorized.join(' ; ')}';
+    }
+
+    final ok = authorized.isNotEmpty;
+    final color = ok ? AppColors.success : AppColors.error;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: .35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            ok ? Icons.verified_rounded : Icons.block_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
         ],
       ),
     );

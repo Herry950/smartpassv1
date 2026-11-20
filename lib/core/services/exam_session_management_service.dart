@@ -150,7 +150,8 @@ class ExamSessionManagementService {
           .from('exam_sessions')
           .select(
             'id, academic_year_id, faculty_id, fee_amount, currency, '
-            'status, session_name, semester, payment_open, created_at',
+            'status, session_name, semester, payment_open, created_at, '
+            'academic_years(name, start_date, is_current)',
           )
           .eq('faculty_id', facultyId)
           .order('created_at', ascending: false);

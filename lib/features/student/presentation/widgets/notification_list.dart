@@ -7,9 +7,21 @@ import 'notification_item.dart';
 class NotificationList extends StatelessWidget {
   final List<Map<String, dynamic>> notifications;
 
+  /// Ouverture d'une notification (marquage lu + navigation).
+  final void Function(Map<String, dynamic> notification)? onOpen;
+
+  /// Marquage individuel comme lu.
+  final void Function(Map<String, dynamic> notification)? onMarkRead;
+
+  /// Indique si la notification conduit vers une page.
+  final bool Function(Map<String, dynamic> notification)? hasDestination;
+
   const NotificationList({
     super.key,
     required this.notifications,
+    this.onOpen,
+    this.onMarkRead,
+    this.hasDestination,
   });
 
   IconData _icon(String? type) {
@@ -107,6 +119,10 @@ class NotificationList extends StatelessWidget {
           message: notification['message'] ?? "",
           time: _formatDate(notification['created_at']),
           unread: !(notification['is_read'] ?? false),
+          onTap: onOpen == null ? null : () => onOpen!(notification),
+          onMarkRead:
+              onMarkRead == null ? null : () => onMarkRead!(notification),
+          hasDestination: hasDestination?.call(notification) ?? false,
         );
       }).toList(),
     );

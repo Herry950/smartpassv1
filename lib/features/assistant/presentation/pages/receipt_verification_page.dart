@@ -862,6 +862,8 @@ class _ReceiptVerificationPageState
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            _buildAccessControlStatus(examSession),
           ] else ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -1008,6 +1010,52 @@ class _ReceiptVerificationPageState
         '${local.year} à '
         '${twoDigits(local.hour)}:'
         '${twoDigits(local.minute)}';
+  }
+
+  /// Indication séparée de l'authenticité : le contrôle d'accès n'est
+  /// possible que pour une session ouverte et programmée.
+  Widget _buildAccessControlStatus(Map<String, dynamic> examSession) {
+    final controllable = examSession['payment_open'] == true &&
+        examSession['status'] == 'scheduled';
+    final color = controllable ? AppColors.success : AppColors.textSecondary;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            controllable
+                ? Icons.verified_user_rounded
+                : Icons.info_outline_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              controllable
+                  ? 'Contrôle d’accès possible : la session est ouverte. '
+                      'Accès autorisé à la session : '
+                      '${_displayValue(examSession['session_name'])} — '
+                      '${_displayValue(examSession['semester'])}'
+                  : 'Session fermée : le reçu reste authentique, mais aucun '
+                      'contrôle d’accès n’est actuellement possible pour '
+                      'cette session.',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildDetailTile(String label, String value) {
