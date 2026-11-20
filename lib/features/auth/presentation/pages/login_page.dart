@@ -161,7 +161,16 @@ obscurePassword = !obscurePassword;
 ),
 onSubmitted: (_) => signIn(),
 ),
-const SizedBox(height: 30),
+Align(
+alignment: Alignment.centerRight,
+child: TextButton(
+onPressed: loading
+? null
+: () => context.go('/auth/reset-password'),
+child: const Text("Mot de passe oublié ?"),
+),
+),
+const SizedBox(height: 14),
 SizedBox(
 width: double.infinity,
 height: 50,

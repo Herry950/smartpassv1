@@ -52,8 +52,11 @@ void showChangePasswordDialog(BuildContext context) {
                     border: OutlineInputBorder(),
                   ),
                   validator: (val) {
-                    if (val == null || val.length < 6) {
-                      return 'Au moins 6 caractères requis';
+                    if (val == null || val.length < 8) {
+                      return 'Au moins 8 caractères requis';
+                    }
+                    if (val.length > 128) {
+                      return '128 caractères maximum';
                     }
                     return null;
                   },

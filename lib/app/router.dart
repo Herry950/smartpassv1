@@ -30,6 +30,7 @@ import '../features/assistant/presentation/pages/assistant_cash_remittance_histo
 
 import '../features/auth/presentation/pages/assistant_invitation_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
+import '../features/auth/presentation/pages/reset_password_page.dart';
 import '../features/auth/presentation/pages/role_selection_page.dart';
 import '../features/auth/presentation/pages/student_register_page.dart';
 
@@ -55,6 +56,7 @@ class AppRouter {
     '/register',
     '/roles',
     '/auth/invite',
+    '/auth/reset-password',
   };
 
   /// Modules globaux hébergés sous /admin mais réservés
@@ -267,6 +269,14 @@ class AppRouter {
         GoRoute(
           path: '/auth/invite',
           builder: (context, state) => AssistantInvitationPage(
+            callbackUri: initialUri,
+          ),
+        ),
+
+        // MOT DE PASSE OUBLIÉ (demande + lien reçu par e-mail)
+        GoRoute(
+          path: AuthService.passwordResetPath,
+          builder: (context, state) => ResetPasswordPage(
             callbackUri: initialUri,
           ),
         ),

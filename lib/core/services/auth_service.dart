@@ -22,6 +22,20 @@ class AuthService {
       'désactivé. Veuillez contacter l’administration de votre '
       'faculté pour réactiver votre compte.';
 
+  /// Chemin de la page qui reçoit le lien de réinitialisation.
+  static const String passwordResetPath = '/auth/reset-password';
+
+  /// Envoie l'e-mail de réinitialisation du mot de passe
+  /// (Supabase Auth, SMTP configuré dans Supabase).
+  /// Le lien revient sur l'origine courante de l'application,
+  /// qui doit figurer dans les Redirect URLs de Supabase Auth.
+  static Future<void> sendPasswordResetEmail(String email) async {
+    await _client.auth.resetPasswordForEmail(
+      email.trim(),
+      redirectTo: Uri.base.resolve(passwordResetPath).toString(),
+    );
+  }
+
   static Future<AuthResponse> signIn({
     required String email,
     required String password,

@@ -126,7 +126,7 @@ debugPrint('==========================================');
 
       if (invitationType != 'invite') {
         throw Exception(
-          'Ce lien ne correspond pas à une invitation Assistant.',
+          'Ce lien ne correspond pas à une invitation SmartPass.',
         );
       }
 
@@ -266,7 +266,7 @@ debugPrint('==========================================');
 
       _showMessage(
         data['message']?.toString() ??
-            'Votre compte Assistant est activé avec succès.',
+            'Votre compte est activé avec succès.',
       );
 
       context.go('/login');
@@ -298,6 +298,15 @@ debugPrint('==========================================');
         setState(() => _loading = false);
       }
     }
+  }
+
+  // Libellé d'affichage uniquement (métadonnées de l'invitation) ;
+  // les droits réels sont déterminés côté serveur.
+  String get _roleLabel {
+    final role = _invitationSession?.user.userMetadata?['role'];
+    return role == 'faculty_admin'
+        ? 'Administrateur facultaire'
+        : 'Assistant';
   }
 
   void _showMessage(String message) {
@@ -372,10 +381,10 @@ debugPrint('==========================================');
           style: theme.textTheme.headlineSmall,
         ),
         const SizedBox(height: 10),
-        const Text(
+        Text(
           'Votre invitation a été vérifiée. '
           'Définissez maintenant votre mot de passe '
-          'pour accéder à votre espace Assistant.',
+          'pour accéder à votre espace $_roleLabel.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
